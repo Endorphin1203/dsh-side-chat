@@ -8,6 +8,7 @@ window.__ModuleLoader__.load({
     const COMMAND = 'sidechat'
     const STORAGE_KEY = 'dsh.side-chat.tabs.v1'
     const ADDRESS_PREFIX = 'dsh-resource://subagentchat/session/'
+    const DRAFT_PREFIX = 'dsh-resource://sidechatdraft/'
     const START_GRACE_MS = 2000
     const OPEN_GRACE_MS = 2000
     const RECONCILE_DELAY_MS = 2500
@@ -19,16 +20,19 @@ window.__ModuleLoader__.load({
       'action.ask': '在侧边提问',
       'action.quoteAria': '把选中文字添加到当前对话',
       'action.askAria': '在侧边聊天中追问选中文字',
-      'modal.title': '在侧边聊天中提问',
-      'modal.selected': '选中片段',
-      'modal.note': '只读侧边聊天。它会看到当前对话的快照，但不能修改文件。',
-      'modal.question': '问题',
-      'modal.placeholder': '关于这段文字，你想问什么？',
-      'modal.submit': '提问',
-      'modal.cancel': '取消',
-      'modal.busy': '正在打开…',
-      'modal.emptySelection': '请先选中一段文字。',
-      'modal.openFailed': '无法打开侧边聊天。',
+      'draft.tab': '侧边聊天',
+      'draft.title': '在侧边聊天中提问',
+      'draft.note': '只读侧边聊天。它会看到当前对话的快照，但不能修改文件。',
+      'draft.selected': '选中片段',
+      'draft.question': '问题',
+      'draft.placeholder': '关于这段文字，你想问什么？',
+      'draft.submit': '提问',
+      'draft.cancel': '取消',
+      'draft.busy': '正在打开…',
+      'draft.emptySelection': '请先选中一段文字。',
+      'draft.openFailed': '无法打开侧边聊天。',
+      'draft.expired': '这个草稿已失效',
+      'draft.expiredNote': '请重新在对话中选中文字。',
       'error.tooLong': '选中文字过长。',
       'error.command': '侧边聊天命令执行失败。',
       'error.unavailable': '当前版本没有可用的侧边聊天。',
@@ -41,16 +45,19 @@ window.__ModuleLoader__.load({
       'action.ask': 'Ask in side chat',
       'action.quoteAria': 'Add the selected text to the conversation',
       'action.askAria': 'Ask about the selected text in a side chat',
-      'modal.title': 'Ask in side chat',
-      'modal.selected': 'Selected excerpt',
-      'modal.note': 'Read-only side chat. It sees a snapshot of this conversation and cannot change files.',
-      'modal.question': 'Question',
-      'modal.placeholder': 'Ask about this excerpt…',
-      'modal.submit': 'Ask',
-      'modal.cancel': 'Cancel',
-      'modal.busy': 'Opening…',
-      'modal.emptySelection': 'Select some text first.',
-      'modal.openFailed': 'Could not open the side chat.',
+      'draft.tab': 'Side chat',
+      'draft.title': 'Ask in side chat',
+      'draft.note': 'Read-only side chat. It sees a snapshot of this conversation and cannot change files.',
+      'draft.selected': 'Selected excerpt',
+      'draft.question': 'Question',
+      'draft.placeholder': 'Ask about this excerpt…',
+      'draft.submit': 'Ask',
+      'draft.cancel': 'Cancel',
+      'draft.busy': 'Opening…',
+      'draft.emptySelection': 'Select some text first.',
+      'draft.openFailed': 'Could not open the side chat.',
+      'draft.expired': 'This draft expired',
+      'draft.expiredNote': 'Select text in the conversation to start again.',
       'error.tooLong': 'The selection is too long.',
       'error.command': 'The side-chat command failed.',
       'error.unavailable': 'Side chat is unavailable in this build.',
@@ -58,6 +65,12 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = `
+      .dsh-side-chat-selection {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
       .dsh-side-chat-actions {
         display: inline-flex;
         align-items: center;
@@ -89,38 +102,33 @@ window.__ModuleLoader__.load({
           background: var(--dsw-alias-bg-layer-2);
         }
       }
-      .dsh-side-chat-backdrop {
-        position: fixed;
-        inset: 0;
-        z-index: 1000;
-        background: color-mix(in srgb, var(--dsw-alias-label-primary) 22%, transparent);
+      .dsh-side-chat-action-error {
+        max-width: 280px;
+        padding: 4px 8px;
+        border: 1px solid var(--dsw-alias-state-error-primary);
+        border-radius: 6px;
+        background: var(--dsw-alias-bg-overlay);
+        color: var(--dsw-alias-state-error-primary);
+        font-size: 12px;
+        line-height: 16px;
       }
-      .dsh-side-chat-dialog {
-        position: fixed;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 1001;
+      .dsh-side-chat-draft {
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
         gap: 10px;
-        width: min(440px, calc(100vw - 32px));
-        max-height: min(720px, calc(100vh - 32px));
-        overflow: auto;
+        height: 100%;
         padding: 16px;
-        border: 1px solid var(--dsw-alias-border-l1);
-        border-radius: 12px;
-        background: var(--dsw-alias-bg-overlay);
+        overflow: auto;
+        background: var(--dsw-alias-bg-base);
         color: var(--dsw-alias-label-primary);
-        box-shadow: var(--dsw-elevation-prominent, 0 16px 48px rgba(0, 0, 0, 0.24));
       }
-      .dsh-side-chat-title {
+      .dsh-side-chat-draft-title {
         font-size: 15px;
         font-weight: 600;
         line-height: 20px;
       }
-      .dsh-side-chat-note {
+      .dsh-side-chat-draft-note {
         color: var(--dsw-alias-label-secondary);
         font-size: 12px;
         line-height: 18px;
@@ -132,7 +140,7 @@ window.__ModuleLoader__.load({
       }
       .dsh-side-chat-quote {
         margin: 0;
-        max-height: 120px;
+        max-height: 160px;
         overflow: auto;
         padding: 8px 10px;
         border-left: 2px solid var(--dsw-alias-border-l2);
@@ -147,7 +155,7 @@ window.__ModuleLoader__.load({
       .dsh-side-chat-input {
         box-sizing: border-box;
         width: 100%;
-        min-height: 76px;
+        min-height: 96px;
         resize: vertical;
         padding: 8px 10px;
         border: 1px solid var(--dsw-alias-border-l1);
@@ -217,31 +225,6 @@ window.__ModuleLoader__.load({
       return error instanceof Error ? error.message : String(error)
     }
 
-    function createQuestionStore() {
-      let current = null
-      const listeners = new Set()
-      return {
-        getSnapshot: () => current,
-        subscribe(listener) {
-          listeners.add(listener)
-          return () => { listeners.delete(listener) }
-        },
-        set(next) {
-          if (current === next) return
-          current = next
-          for (const listener of [...listeners]) {
-            try {
-              listener()
-            } catch {
-              // A listener must not break the dialog state.
-            }
-          }
-        },
-      }
-    }
-
-    const questionStore = createQuestionStore()
-
     function sideChatId(value) {
       return typeof value === 'string'
         && value.startsWith('session-sidechat-')
@@ -276,6 +259,24 @@ window.__ModuleLoader__.load({
       return `session-sidechat-${uuid}`
     }
 
+    function newDraftId() {
+      const uuid = globalThis.crypto?.randomUUID?.()
+      if (typeof uuid === 'string') return uuid
+      return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+    }
+
+    function parseDraftAddress(address) {
+      try {
+        const url = new URL(address)
+        if (url.protocol !== 'dsh-resource:' || url.hostname !== 'sidechatdraft') return undefined
+        const parts = url.pathname.split('/').filter(Boolean)
+        if (parts.length !== 1) return undefined
+        return decodeURIComponent(parts[0])
+      } catch {
+        return undefined
+      }
+    }
+
     function buildAddress(childSessionId, parentSessionId) {
       const query = new URLSearchParams({ parent: parentSessionId, mode: 'continuable' })
       return `${ADDRESS_PREFIX}${encodeURIComponent(childSessionId)}?${query.toString()}`
@@ -284,6 +285,7 @@ window.__ModuleLoader__.load({
     function apply(ctx) {
       const t = ctx.locale.bind(NS)
       const records = new Map()
+      const drafts = new Map()
       const startedAt = Date.now()
       let reconcileTimer
 
@@ -366,16 +368,30 @@ window.__ModuleLoader__.load({
         }, RECONCILE_DELAY_MS)
       }
 
+      const openDraft = (sessionId, selection) => {
+        const text = String(selection ?? '')
+        if (text.trim() === '') throw new Error(t('draft.emptySelection'))
+        const draftId = newDraftId()
+        drafts.set(draftId, { sessionId, text })
+        const address = `${DRAFT_PREFIX}${encodeURIComponent(draftId)}`
+        try {
+          ctx.sidebarRight.openResource(address, { kind: 'sidechatdraft', preferNewPane: true })
+        } catch (error) {
+          drafts.delete(draftId)
+          throw error
+        }
+      }
+
       const openSideChat = async (sessionId, selection, question) => {
         const text = String(selection ?? '').trim()
-        if (text === '') return { ok: false, error: t('modal.emptySelection') }
+        if (text === '') return { ok: false, error: t('draft.emptySelection') }
         if (text.length > MAX_SELECTION_CHARS) return { ok: false, error: t('error.tooLong') }
 
         let childSessionId
         try {
           childSessionId = newChildSessionId()
         } catch (error) {
-          return { ok: false, error: `${t('modal.openFailed')} ${messageOf(error)}` }
+          return { ok: false, error: `${t('draft.openFailed')} ${messageOf(error)}` }
         }
 
         const excerpt = excerptLabel(text)
@@ -424,6 +440,7 @@ window.__ModuleLoader__.load({
       function SideChatSelectionAction(props) {
         const { dismiss, readText, clearSelection, inputActions, useSession, sessionId } = props
         const [text] = React.useState(() => readText())
+        const [error, setError] = React.useState(null)
         const enabled = useSession(s => !s.removed && (s.subagent == null || (s.subagent.address.mode === 'continuable' && s.subagent.parentAvailable === true)))
         const isSubagent = useSession(s => s.subagent != null)
 
@@ -433,104 +450,121 @@ window.__ModuleLoader__.load({
 
         if (!enabled || text === null || text === undefined || String(text).trim() === '') return null
 
-        return h('div', {
-          className: 'dsh-side-chat-actions',
-          role: 'group',
-          'aria-label': t('action.groupAria'),
-        },
-        h('button', {
-          type: 'button',
-          className: 'dsh-side-chat-action',
-          'aria-label': t('action.quoteAria'),
-          onPointerDown: (event) => { event.preventDefault() },
-          onClick: () => {
-            const current = readText() ?? text
-            if (typeof inputActions?.insertQuote !== 'function') return
-            if (!inputActions.insertQuote(current)) return
-            clearSelection()
-            dismiss()
+        return h('div', { className: 'dsh-side-chat-selection' },
+          h('div', {
+            className: 'dsh-side-chat-actions',
+            role: 'group',
+            'aria-label': t('action.groupAria'),
           },
-        }, t('action.quote')),
-        isSubagent ? null : h('button', {
-          type: 'button',
-          className: 'dsh-side-chat-action',
-          'aria-label': t('action.askAria'),
-          onPointerDown: (event) => { event.preventDefault() },
-          onClick: () => {
-            questionStore.set({ sessionId, text: readText() ?? text })
-            clearSelection()
-            dismiss()
-          },
-        }, t('action.ask')))
+          h('button', {
+            type: 'button',
+            className: 'dsh-side-chat-action',
+            'aria-label': t('action.quoteAria'),
+            onPointerDown: (event) => { event.preventDefault() },
+            onClick: () => {
+              const current = readText() ?? text
+              if (typeof inputActions?.insertQuote !== 'function') return
+              if (!inputActions.insertQuote(current)) return
+              clearSelection()
+              dismiss()
+            },
+          }, t('action.quote')),
+          isSubagent ? null : h('button', {
+            type: 'button',
+            className: 'dsh-side-chat-action',
+            'aria-label': t('action.askAria'),
+            onPointerDown: (event) => { event.preventDefault() },
+            onClick: () => {
+              try {
+                openDraft(sessionId, readText() ?? text)
+              } catch (caught) {
+                setError(`${t('error.unavailable')} ${messageOf(caught)}`)
+                return
+              }
+              clearSelection()
+              dismiss()
+            },
+          }, t('action.ask'))),
+          error === null ? null : h('div', { className: 'dsh-side-chat-action-error', role: 'alert' }, error))
       }
 
-      function SideChatQuestionOverlay() {
-        const pending = React.useSyncExternalStore(questionStore.subscribe, questionStore.getSnapshot)
+      function SideChatDraftTab(props) {
+        const { tab } = props.useTabInfo()
+        const draftId = parseDraftAddress(tab.contentId)
+        const draft = draftId === undefined ? undefined : drafts.get(draftId)
         const [question, setQuestion] = React.useState('')
         const [busy, setBusy] = React.useState(false)
         const [error, setError] = React.useState(null)
         const inputRef = React.useRef(null)
+        const inputId = `dsh-side-chat-question-${draftId ?? 'expired'}`
 
         React.useEffect(() => {
-          if (pending === null) {
-            setQuestion('')
-            setBusy(false)
-            setError(null)
-            return undefined
-          }
-          const timer = window.setTimeout(() => inputRef.current?.focus(), 0)
+          inputRef.current?.focus()
+        }, [])
+
+        React.useEffect(() => () => {
+          if (draftId !== undefined) drafts.delete(draftId)
+        }, [draftId])
+
+        React.useEffect(() => {
+          if (draft !== undefined) return undefined
+          const timer = window.setTimeout(() => {
+            try {
+              ctx.sidebarRight.close(tab.id)
+            } catch (closeError) {
+              console.error('[side-chat] cannot close expired draft:', closeError)
+            }
+          }, 0)
           return () => window.clearTimeout(timer)
-        }, [pending])
+        }, [draft, tab.id])
 
-        React.useEffect(() => {
-          if (pending === null) return undefined
-          const onKeyDown = (event) => {
-            if (event.key === 'Escape' && !busy) questionStore.set(null)
+        if (draft === undefined) {
+          return h('div', { className: 'dsh-side-chat-draft' },
+            h('div', { className: 'dsh-side-chat-draft-title' }, t('draft.expired')),
+            h('div', { className: 'dsh-side-chat-draft-note' }, t('draft.expiredNote')))
+        }
+
+        const close = () => {
+          if (draftId !== undefined) drafts.delete(draftId)
+          try {
+            ctx.sidebarRight.close(tab.id)
+          } catch (closeError) {
+            console.error('[side-chat] cannot close draft:', closeError)
           }
-          document.addEventListener('keydown', onKeyDown)
-          return () => document.removeEventListener('keydown', onKeyDown)
-        }, [pending, busy])
-
-        if (pending === null) return null
+        }
 
         const submit = async () => {
           if (busy) return
           setBusy(true)
           setError(null)
-          const result = await openSideChat(pending.sessionId, pending.text, question)
+          const result = await openSideChat(draft.sessionId, draft.text, question)
           if (result.ok) {
-            questionStore.set(null)
+            if (draftId !== undefined) drafts.delete(draftId)
+            try {
+              ctx.sidebarRight.close(tab.id)
+            } catch (closeError) {
+              console.error('[side-chat] cannot close draft:', closeError)
+            }
             return
           }
           setBusy(false)
           setError(result.error)
         }
 
-        const preview = pending.text.length > 500 ? `${pending.text.slice(0, 500)}…` : pending.text
+        const preview = draft.text.length > 500 ? `${draft.text.slice(0, 500)}…` : draft.text
 
-        return h(React.Fragment, null,
-          h('div', {
-            className: 'dsh-side-chat-backdrop',
-            onClick: () => { if (!busy) questionStore.set(null) },
-          }),
-          h('div', {
-            className: 'dsh-side-chat-dialog',
-            role: 'dialog',
-            'aria-modal': 'true',
-            'aria-labelledby': 'dsh-side-chat-title',
-            onClick: event => event.stopPropagation(),
-          },
-          h('div', { id: 'dsh-side-chat-title', className: 'dsh-side-chat-title' }, t('modal.title')),
-          h('div', { className: 'dsh-side-chat-note' }, t('modal.note')),
-          h('div', { className: 'dsh-side-chat-label' }, t('modal.selected')),
+        return h('div', { className: 'dsh-side-chat-draft' },
+          h('div', { className: 'dsh-side-chat-draft-title' }, t('draft.title')),
+          h('div', { className: 'dsh-side-chat-draft-note' }, t('draft.note')),
+          h('div', { className: 'dsh-side-chat-label' }, t('draft.selected')),
           h('blockquote', { className: 'dsh-side-chat-quote' }, preview),
-          h('label', { className: 'dsh-side-chat-label', htmlFor: 'dsh-side-chat-question' }, t('modal.question')),
+          h('label', { className: 'dsh-side-chat-label', htmlFor: inputId }, t('draft.question')),
           h('textarea', {
-            id: 'dsh-side-chat-question',
+            id: inputId,
             ref: inputRef,
             className: 'dsh-side-chat-input',
             value: question,
-            placeholder: t('modal.placeholder'),
+            placeholder: t('draft.placeholder'),
             disabled: busy,
             onChange: event => setQuestion(event.target.value),
             onKeyDown: (event) => {
@@ -547,15 +581,14 @@ window.__ModuleLoader__.load({
               type: 'button',
               className: 'dsh-side-chat-button',
               disabled: busy,
-              onClick: () => questionStore.set(null),
-            }, t('modal.cancel')),
+              onClick: close,
+            }, t('draft.cancel')),
             h('button', {
               type: 'button',
               className: 'dsh-side-chat-button dsh-side-chat-primary',
               disabled: busy,
               onClick: () => void submit(),
-            }, busy ? t('modal.busy') : t('modal.submit'))))
-        )
+            }, busy ? t('draft.busy') : t('draft.submit'))))
       }
 
       ctx.effect(() => {
@@ -571,7 +604,6 @@ window.__ModuleLoader__.load({
           window.clearTimeout(bootTimer)
           if (reconcileTimer !== undefined) window.clearTimeout(reconcileTimer)
           if (typeof unsubscribe === 'function') unsubscribe()
-          questionStore.set(null)
         }
       }, 'side-chat: tab tracking')
 
@@ -598,12 +630,24 @@ window.__ModuleLoader__.load({
         }, SideChatSelectionAction))
       }
 
-      ctx.slots.inject('shell.overlay', () => ctx.slots.register({
-        name: 'shell.overlay',
-        id: 'side-chat-question',
-        order: 50,
-        locale: NS,
-      }, SideChatQuestionOverlay))
+      ctx.inject(['sidebarRightTabs'], (scope) => {
+        scope.effect(() => scope.sidebarRightTabs.register({
+          id: '@local/dsh-side-chat/draft',
+          kind: 'sidechatdraft',
+          patterns: ['dsh-resource://sidechatdraft/**'],
+          priority: 'extension',
+          multiple: true,
+          keepMounted: true,
+          canOpen: address => parseDraftAddress(address) !== undefined,
+          title: () => t('draft.tab'),
+        }), 'side-chat: draft tab type')
+
+        scope.effect(() => scope.slots.inject('sidebar.right.pane.tab', () => scope.slots.register({
+          name: 'sidebar.right.pane.tab',
+          key: '@local/dsh-side-chat/draft',
+          locale: NS,
+        }, SideChatDraftTab)), 'side-chat: draft tab body')
+      })
     }
 
     return {
