@@ -827,23 +827,14 @@ window.__ModuleLoader__.load({
             'aria-label': t('action.askAria'),
             onPointerDown: (event) => { event.preventDefault() },
             onClick: () => {
-              const current = readText() ?? text
-              void (async () => {
-                try {
-                  const existing = findOpenSideChat(sessionId)
-                  const result = existing === undefined
-                    ? await openSideChat(sessionId, [current], '')
-                    : await appendSideChat(existing, current)
-                  if (!result.ok) {
-                    setError(result.error)
-                    return
-                  }
-                  clearSelection()
-                  dismiss()
-                } catch (caught) {
-                  setError(`${t('error.unavailable')} ${messageOf(caught)}`)
-                }
-              })()
+              try {
+                openDraft(sessionId, readText() ?? text)
+              } catch (caught) {
+                setError(`${t('error.unavailable')} ${messageOf(caught)}`)
+                return
+              }
+              clearSelection()
+              dismiss()
             },
           }, t('action.ask'))),
           error === null ? null : h('div', { className: 'dsh-side-chat-action-error', role: 'alert' }, error))
