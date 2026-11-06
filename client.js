@@ -748,6 +748,47 @@ window.__ModuleLoader__.load({
         return { ok: true }
       }
 
+      const findOpenSideChat = (sessionId) => {
+        let open
+        try {
+          open = new Set(ctx.sidebarRight.openTabs.getSnapshot().map(tab => tab.contentId))
+        } catch {
+          return undefined
+        }
+        let found
+        for (const record of records.values()) {
+          if (record.parentSessionId === sessionId && open.has(record.address)) found = record
+        }
+        return found
+      }
+
+      const appendSideChat = async (record, selection) => {
+        const text = String(selection ?? '').trim()
+        if (text === '') return { ok: false, error: t('draft.emptySelection') }
+        try {
+          const outcome = await ctx.remote.commands.execute(
+            record.parentSessionId,
+            `/${COMMAND} ${JSON.stringify({
+              action: 'append',
+              childSessionId: record.childSessionId,
+              selections: [text],
+            })}`,
+            [],
+          )
+          if (outcome?.ok !== true) {
+            return { ok: false, error: `${t('error.command')} ${outcome?.error?.message ?? ''}`.trim() }
+          }
+          if (outcome.value === undefined) return { ok: false, error: t('error.command') }
+          if (outcome.value.result?.kind !== 'success') {
+            return { ok: false, error: outcome.value.result?.text ?? t('error.command') }
+          }
+          ctx.sidebarRight.openResource(record.address, { kind: 'subagentchat' })
+          return { ok: true }
+        } catch (error) {
+          return { ok: false, error: `${t('error.command')} ${messageOf(error)}` }
+        }
+      }
+
       function SideChatSelectionAction(props) {
         const { dismiss, readText, clearSelection, inputActions, useSession, sessionId } = props
         const [text] = React.useState(() => readText())
@@ -786,14 +827,23 @@ window.__ModuleLoader__.load({
             'aria-label': t('action.askAria'),
             onPointerDown: (event) => { event.preventDefault() },
             onClick: () => {
-              try {
-                openDraft(sessionId, readText() ?? text)
-              } catch (caught) {
-                setError(`${t('error.unavailable')} ${messageOf(caught)}`)
-                return
-              }
-              clearSelection()
-              dismiss()
+              const current = readText() ?? text
+              void (async () => {
+                try {
+                  const existing = findOpenSideChat(sessionId)
+                  const result = existing === undefined
+                    ? await openSideChat(sessionId, [current], '')
+                    : await appendSideChat(existing, current)
+                  if (!result.ok) {
+                    setError(result.error)
+                    return
+                  }
+                  clearSelection()
+                  dismiss()
+                } catch (caught) {
+                  setError(`${t('error.unavailable')} ${messageOf(caught)}`)
+                }
+              })()
             },
           }, t('action.ask'))),
           error === null ? null : h('div', { className: 'dsh-side-chat-action-error', role: 'alert' }, error))

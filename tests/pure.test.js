@@ -3,11 +3,14 @@ import assert from 'node:assert/strict'
 import {
   DEFAULT_QUESTION,
   buildLabel,
+  buildSideChatAppendPrompt,
+  buildSideChatBootstrapPrompt,
   buildSideChatPrompt,
   buildSideChatSystemPrompt,
   formatTranscript,
   isSideChatId,
   newSideChatId,
+  normalizeAppendPayload,
   normalizeEndPayload,
   normalizeOpenPayload,
 } from '../lib/pure.js'
@@ -90,6 +93,28 @@ test('buildSideChatPrompt quotes every selected excerpt', () => {
   assert.match(text, /> alpha\n\n> beta/)
   assert.match(text, /these excerpts/)
   assert.match(text, /Question: why\?/)
+})
+
+test('buildSideChatBootstrapPrompt includes excerpts and invites the question', () => {
+  const text = buildSideChatBootstrapPrompt({ selections: ['alpha', 'beta'] })
+  assert.match(text, /> alpha\n\n> beta/)
+  assert.match(text, /inviting my question/)
+  assert.match(text, /these excerpts/)
+})
+
+test('buildSideChatAppendPrompt labels additional excerpts as context', () => {
+  const text = buildSideChatAppendPrompt({ selections: ['gamma'] })
+  assert.match(text, /Additional selected excerpt/)
+  assert.match(text, /> gamma/)
+  assert.match(text, /context for my next question/)
+})
+
+test('normalizeAppendPayload accepts selections and rejects bad input', () => {
+  const ok = normalizeAppendPayload({ action: 'append', childSessionId: CHILD, selections: ['a', 'b'] }, LIMITS)
+  assert.equal(ok.ok, true)
+  assert.deepEqual(ok.value.selections, ['a', 'b'])
+  assert.equal(normalizeAppendPayload({ action: 'append', childSessionId: 'session-abc', selections: ['a'] }, LIMITS).ok, false)
+  assert.equal(normalizeAppendPayload({ action: 'append', childSessionId: CHILD, selections: [] }, LIMITS).ok, false)
 })
 
 test('buildSideChatSystemPrompt includes the role and transcript', () => {
