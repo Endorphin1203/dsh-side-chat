@@ -186,7 +186,10 @@ test('normalizeOpenPayload accepts an optional provider/model pair', () => {
   }, LIMITS)
   assert.equal(withEffort.ok, true)
   assert.equal(withEffort.value.reasoningEffort, 'high')
-  assert.equal(normalizeOpenPayload({ ...base, reasoningEffort: 'high' }, LIMITS).ok, false)
+  const effortOnly = normalizeOpenPayload({ ...base, reasoningEffort: 'high' }, LIMITS)
+  assert.equal(effortOnly.ok, true)
+  assert.equal(effortOnly.value.reasoningEffort, 'high')
+  assert.equal(effortOnly.value.provider, undefined)
 })
 
 test('normalizeEndPayload accepts only side-chat ids and the end action', () => {

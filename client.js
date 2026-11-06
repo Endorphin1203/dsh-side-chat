@@ -40,6 +40,7 @@ window.__ModuleLoader__.load({
       'draft.modelEmpty': '没有可用模型',
       'draft.effort': '推理等级',
       'draft.effortDefault': '默认',
+      'draft.effortInherit': '跟随主会话',
       'draft.effortNone': '该模型没有可选的推理等级',
       'draft.effortUnavailable': '先选择模型',
       'draft.back': '返回',
@@ -73,6 +74,7 @@ window.__ModuleLoader__.load({
       'draft.modelEmpty': 'No models available',
       'draft.effort': 'Reasoning effort',
       'draft.effortDefault': 'Default',
+      'draft.effortInherit': 'Follow main session',
       'draft.effortNone': 'This model has no reasoning levels',
       'draft.effortUnavailable': 'Select a model first',
       'draft.back': 'Back',
@@ -710,9 +712,9 @@ window.__ModuleLoader__.load({
         if (typeof selectionModel?.provider === 'string' && typeof selectionModel?.model === 'string') {
           payload.provider = selectionModel.provider
           payload.model = selectionModel.model
-          if (typeof selectionModel.reasoningEffort === 'string' && selectionModel.reasoningEffort !== '') {
-            payload.reasoningEffort = selectionModel.reasoningEffort
-          }
+        }
+        if (typeof selectionModel?.reasoningEffort === 'string' && selectionModel.reasoningEffort !== '') {
+          payload.reasoningEffort = selectionModel.reasoningEffort
         }
 
         let outcome
@@ -848,6 +850,7 @@ window.__ModuleLoader__.load({
         const [busy, setBusy] = React.useState(false)
         const [error, setError] = React.useState(null)
         const [catalog, setCatalog] = React.useState(null)
+        const [parentSelection, setParentSelection] = React.useState(null)
         const [modelValue, setModelValue] = React.useState('')
         const [effortValue, setEffortValue] = React.useState('')
         const inputRef = React.useRef(null)
@@ -896,6 +899,27 @@ window.__ModuleLoader__.load({
           })()
           return () => { cancelled = true }
         }, [])
+
+        React.useEffect(() => {
+          if (draft === undefined) return undefined
+          const service = ctx.get?.('modelDirectories')
+          if (service === undefined) return undefined
+          let directory
+          try {
+            directory = service.directoryFor(draft.sessionId)
+          } catch {
+            return undefined
+          }
+          if (directory === undefined) return undefined
+          const update = () => {
+            const state = directory.store.getSnapshot()
+            setParentSelection(state?.current ?? null)
+          }
+          const unsubscribe = directory.store.subscribe(update)
+          update()
+          void directory.load().catch(() => {})
+          return unsubscribe
+        }, [draft?.sessionId])
 
         React.useEffect(() => {
           if (draft !== undefined) return undefined
@@ -947,7 +971,7 @@ window.__ModuleLoader__.load({
           setBusy(true)
           setError(null)
           const selected = modelValue === ''
-            ? {}
+            ? (effortValue === '' ? {} : { reasoningEffort: effortValue })
             : (() => {
                 const [provider, model] = modelValue.split(MODEL_SEPARATOR)
                 return provider && model
@@ -1013,11 +1037,19 @@ window.__ModuleLoader__.load({
               efforts: Array.isArray(model.reasoning?.efforts)
                 ? model.reasoning.efforts.map(effort => ({ id: effort.id, name: effort.name }))
                 : [],
+              defaultEffort: model.reasoning?.defaultEffort,
             })
           }
         }
 
         const selectedModel = options.find(option => option.value === modelValue)
+        const parentModel = parentSelection === null
+          ? undefined
+          : options.find(option => option.value === `${parentSelection.provider}${MODEL_SEPARATOR}${parentSelection.model}`)
+        const effectiveModel = modelValue === '' ? parentModel : selectedModel
+        const effortOptions = effectiveModel?.efforts ?? []
+        const selectedEffort = effortOptions.find(effort => effort.id === effortValue)
+        const inheritEffort = modelValue === ''
         const modelLabel = selectedModel === undefined ? t('draft.modelInherit') : selectedModel.name
         const modelIcon = h('svg', {
           viewBox: '0 0 16 16',
@@ -1078,8 +1110,6 @@ window.__ModuleLoader__.load({
           }
           group.options.push(option)
         }
-        const effortOptions = selectedModel?.efforts ?? []
-        const selectedEffort = effortOptions.find(effort => effort.id === effortValue)
         const checkIcon = h('svg', {
           viewBox: '0 0 16 16',
           width: 14,
@@ -1102,29 +1132,30 @@ window.__ModuleLoader__.load({
           onClick: () => {
             setModelValue('')
             setEffortValue('')
-            closeMenu()
           },
         },
         h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.modelInherit')),
         modelValue === '' ? checkIcon : null)
-        const effortSection = modelValue === ''
+        const effortSection = effectiveModel === undefined || (inheritEffort && effortOptions.length === 0)
           ? null
           : h('div', { className: 'dsh-side-chat-model-effort-section' },
             h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, t('draft.effort')),
             effortOptions.length === 0
               ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.effortNone'))
               : h('div', { className: 'dsh-side-chat-model-effort-options' },
-                h('button', {
-                  type: 'button',
-                  role: 'menuitemradio',
-                  'aria-checked': effortValue === '',
-                  className: 'dsh-side-chat-model-effort-chip',
-                  'data-active': effortValue === '' ? 'true' : undefined,
-                  onClick: () => {
-                    setEffortValue('')
-                    closeMenu()
-                  },
-                }, t('draft.effortDefault')),
+                inheritEffort
+                  ? h('button', {
+                      type: 'button',
+                      role: 'menuitemradio',
+                      'aria-checked': effortValue === '',
+                      className: 'dsh-side-chat-model-effort-chip',
+                      'data-active': effortValue === '' ? 'true' : undefined,
+                      onClick: () => {
+                        setEffortValue('')
+                        closeMenu()
+                      },
+                    }, t('draft.effortInherit'))
+                  : null,
                 ...effortOptions.map(effort => h('button', {
                   key: effort.id,
                   type: 'button',
@@ -1151,7 +1182,7 @@ window.__ModuleLoader__.load({
                 className: 'dsh-side-chat-model-option',
                 onClick: () => {
                   setModelValue(option.value)
-                  setEffortValue('')
+                  setEffortValue(option.defaultEffort ?? '')
                 },
               },
               h('span', { className: 'dsh-side-chat-model-option-label' }, option.name),
