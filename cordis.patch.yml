@@ -1,0 +1,10 @@
+- insert:
+    - id: side-chat
+      name: '@local/dsh-side-chat'
+      config:
+        providerName: spawn
+        maxTranscriptChars: 40000
+        maxSelectionChars: 20000
+        maxQuestionChars: 4000
+        readOnlyTools: [read, glob, grep, read_image]
+        systemPromptOrder: 900
