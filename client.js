@@ -28,6 +28,7 @@ window.__ModuleLoader__.load({
       'draft.placeholder': '关于这段文字，你想问什么？',
       'draft.submit': '提问',
       'draft.busy': '正在打开…',
+      'draft.removeQuote': '移除引用',
       'draft.emptySelection': '请先选中一段文字。',
       'draft.openFailed': '无法打开侧边聊天。',
       'draft.expired': '这个草稿已失效',
@@ -58,6 +59,7 @@ window.__ModuleLoader__.load({
       'draft.placeholder': 'Ask about this excerpt…',
       'draft.submit': 'Ask',
       'draft.busy': 'Opening…',
+      'draft.removeQuote': 'Remove quote',
       'draft.emptySelection': 'Select some text first.',
       'draft.openFailed': 'Could not open the side chat.',
       'draft.expired': 'This draft expired',
@@ -167,11 +169,21 @@ window.__ModuleLoader__.load({
         background: var(--dsw-alias-bg-layer-1);
         box-shadow: var(--dsw-elevation-panel, 0 4px 16px rgba(0, 0, 0, 0.14));
       }
+      .dsh-side-chat-quotes {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 220px;
+        overflow: auto;
+      }
+      .dsh-side-chat-quote-item {
+        position: relative;
+      }
       .dsh-side-chat-quote {
         margin: 0;
         max-height: 120px;
         overflow: auto;
-        padding: 6px 8px;
+        padding: 6px 28px 6px 8px;
         border-left: 2px solid var(--dsw-alias-border-l2);
         border-radius: 6px;
         background: var(--dsw-alias-bg-layer-2);
@@ -180,6 +192,30 @@ window.__ModuleLoader__.load({
         line-height: 18px;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+      }
+      .dsh-side-chat-quote-remove {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--dsw-alias-label-secondary);
+        cursor: pointer;
+      }
+      .dsh-side-chat-quote-remove:hover {
+        background: var(--dsw-alias-bg-layer-1);
+        color: var(--dsw-alias-label-primary);
+      }
+      .dsh-side-chat-quote-remove:focus-visible {
+        outline: 2px solid var(--dsw-alias-brand-primary);
+        outline-offset: 1px;
       }
       .dsh-side-chat-composer-input {
         box-sizing: border-box;
@@ -464,6 +500,20 @@ window.__ModuleLoader__.load({
       const t = ctx.locale.bind(NS)
       const records = new Map()
       const drafts = new Map()
+      const draftListeners = new Set()
+      const notifyDrafts = () => {
+        for (const listener of [...draftListeners]) {
+          try {
+            listener()
+          } catch {
+            // A draft listener must not break selection handling.
+          }
+        }
+      }
+      const subscribeDrafts = (listener) => {
+        draftListeners.add(listener)
+        return () => { draftListeners.delete(listener) }
+      }
       const startedAt = Date.now()
       let reconcileTimer
 
@@ -549,21 +599,55 @@ window.__ModuleLoader__.load({
       const openDraft = (sessionId, selection) => {
         const text = String(selection ?? '')
         if (text.trim() === '') throw new Error(t('draft.emptySelection'))
+
+        let existingId
+        let existing
+        for (const [id, draft] of drafts) {
+          if (draft.sessionId === sessionId) {
+            existingId = id
+            existing = draft
+            break
+          }
+        }
+
+        const added = { id: newDraftId(), text }
+        if (existingId !== undefined && existing !== undefined) {
+          drafts.set(existingId, {
+            ...existing,
+            selections: [...(existing.selections ?? []), added],
+          })
+          notifyDrafts()
+          const address = `${DRAFT_PREFIX}${encodeURIComponent(existingId)}`
+          try {
+            ctx.sidebarRight.openResource(address, { kind: 'sidechatdraft' })
+          } catch (error) {
+            console.error('[side-chat] cannot focus draft:', error)
+          }
+          return
+        }
+
         const draftId = newDraftId()
-        drafts.set(draftId, { sessionId, text })
+        drafts.set(draftId, { sessionId, selections: [added] })
+        notifyDrafts()
         const address = `${DRAFT_PREFIX}${encodeURIComponent(draftId)}`
         try {
           ctx.sidebarRight.openResource(address, { kind: 'sidechatdraft', preferNewPane: true })
         } catch (error) {
           drafts.delete(draftId)
+          notifyDrafts()
           throw error
         }
       }
 
-      const openSideChat = async (sessionId, selection, question, selectionModel = {}) => {
-        const text = String(selection ?? '').trim()
-        if (text === '') return { ok: false, error: t('draft.emptySelection') }
-        if (text.length > MAX_SELECTION_CHARS) return { ok: false, error: t('error.tooLong') }
+      const openSideChat = async (sessionId, selections, question, selectionModel = {}) => {
+        const texts = Array.isArray(selections)
+          ? selections.map(item => String(item ?? '').trim()).filter(Boolean)
+          : String(selections ?? '').trim() !== ''
+            ? [String(selections).trim()]
+            : []
+        if (texts.length === 0) return { ok: false, error: t('draft.emptySelection') }
+        const selectedChars = texts.reduce((total, text) => total + text.length, 0)
+        if (selectedChars > MAX_SELECTION_CHARS) return { ok: false, error: t('error.tooLong') }
 
         let childSessionId
         try {
@@ -572,12 +656,12 @@ window.__ModuleLoader__.load({
           return { ok: false, error: `${t('draft.openFailed')} ${messageOf(error)}` }
         }
 
-        const excerpt = excerptLabel(text)
+        const excerpt = excerptLabel(texts[0])
         const label = excerpt === '' ? t('tab.label') : `${t('tab.label')} · ${excerpt}`
         const payload = {
           action: 'open',
           childSessionId,
-          selection: text,
+          selections: texts,
           question: String(question ?? '').trim(),
           label,
         }
@@ -676,7 +760,7 @@ window.__ModuleLoader__.load({
       function SideChatDraftTab(props) {
         const { tab } = props.useTabInfo()
         const draftId = parseDraftAddress(tab.contentId)
-        const draft = draftId === undefined ? undefined : drafts.get(draftId)
+        const [draft, setDraft] = React.useState(() => draftId === undefined ? undefined : drafts.get(draftId))
         const [question, setQuestion] = React.useState('')
         const [busy, setBusy] = React.useState(false)
         const [error, setError] = React.useState(null)
@@ -694,6 +778,14 @@ window.__ModuleLoader__.load({
         React.useEffect(() => {
           inputRef.current?.focus()
         }, [])
+
+        React.useEffect(() => {
+          if (draftId === undefined) return undefined
+          const update = () => setDraft(drafts.get(draftId))
+          const unsubscribe = subscribeDrafts(update)
+          update()
+          return unsubscribe
+        }, [draftId])
 
         React.useEffect(() => () => {
           if (draftId !== undefined) drafts.delete(draftId)
@@ -761,7 +853,7 @@ window.__ModuleLoader__.load({
         }
 
         const submit = async () => {
-          if (busy || question.trim() === '') return
+          if (busy || question.trim() === '' || draft.selections.length === 0) return
           setBusy(true)
           setError(null)
           const selected = modelValue === ''
@@ -772,9 +864,13 @@ window.__ModuleLoader__.load({
                   ? { provider, model, ...(effortValue === '' ? {} : { reasoningEffort: effortValue }) }
                   : {}
               })()
-          const result = await openSideChat(draft.sessionId, draft.text, question, selected)
+          const selections = draft.selections.map(item => item.text)
+          const result = await openSideChat(draft.sessionId, selections, question, selected)
           if (result.ok) {
-            if (draftId !== undefined) drafts.delete(draftId)
+            if (draftId !== undefined) {
+              drafts.delete(draftId)
+              notifyDrafts()
+            }
             try {
               ctx.sidebarRight.close(tab.id)
             } catch (closeError) {
@@ -784,6 +880,17 @@ window.__ModuleLoader__.load({
           }
           setBusy(false)
           setError(result.error)
+        }
+
+        const removeSelection = (selectionId) => {
+          if (draftId === undefined) return
+          const current = drafts.get(draftId)
+          if (current === undefined) return
+          drafts.set(draftId, {
+            ...current,
+            selections: (current.selections ?? []).filter(item => item.id !== selectionId),
+          })
+          notifyDrafts()
         }
 
         const options = []
@@ -1014,7 +1121,32 @@ window.__ModuleLoader__.load({
             style: { left: menuPosition.left, bottom: menuPosition.bottom },
           }, menuContent),
           document.body) : null
-        const preview = draft.text.length > 500 ? `${draft.text.slice(0, 500)}…` : draft.text
+        const removeIcon = h('svg', {
+          viewBox: '0 0 16 16',
+          width: 12,
+          height: 12,
+          'aria-hidden': true,
+        }, h('path', {
+          d: 'M4 4l8 8M12 4l-8 8',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.6,
+          'stroke-linecap': 'round',
+        }))
+        const quotes = h('div', { className: 'dsh-side-chat-quotes' },
+          ...draft.selections.map(selection => h('div', {
+            className: 'dsh-side-chat-quote-item',
+            key: selection.id,
+          },
+          h('blockquote', { className: 'dsh-side-chat-quote' },
+            selection.text.length > 500 ? `${selection.text.slice(0, 500)}…` : selection.text),
+          h('button', {
+            type: 'button',
+            className: 'dsh-side-chat-quote-remove',
+            'aria-label': t('draft.removeQuote'),
+            title: t('draft.removeQuote'),
+            onClick: () => removeSelection(selection.id),
+          }, removeIcon))))
         const sendIcon = h('svg', {
           viewBox: '0 0 16 16',
           width: 16,
@@ -1034,7 +1166,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dsh-side-chat-draft-title' }, t('draft.title')),
             h('div', { className: 'dsh-side-chat-draft-note' }, t('draft.note'))),
           h('div', { className: 'dsh-side-chat-composer' },
-            h('blockquote', { className: 'dsh-side-chat-quote' }, preview),
+            quotes,
             h('textarea', {
               id: inputId,
               ref: inputRef,
@@ -1078,7 +1210,7 @@ window.__ModuleLoader__.load({
                 h('button', {
                   type: 'button',
                   className: 'dsh-side-chat-send',
-                  disabled: busy || question.trim() === '',
+                  disabled: busy || question.trim() === '' || draft.selections.length === 0,
                   'aria-label': busy ? t('draft.busy') : t('draft.submit'),
                   title: busy ? t('draft.busy') : t('draft.submit'),
                   onClick: () => void submit(),
@@ -1130,7 +1262,6 @@ window.__ModuleLoader__.load({
           kind: 'sidechatdraft',
           patterns: ['dsh-resource://sidechatdraft/**'],
           priority: 'extension',
-          multiple: true,
           keepMounted: true,
           canOpen: address => parseDraftAddress(address) !== undefined,
           title: () => t('draft.tab'),

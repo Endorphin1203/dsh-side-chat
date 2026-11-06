@@ -85,6 +85,13 @@ test('buildSideChatPrompt quotes each line and defaults an empty question', () =
   assert.match(text, new RegExp(`Question: ${DEFAULT_QUESTION}`))
 })
 
+test('buildSideChatPrompt quotes every selected excerpt', () => {
+  const text = buildSideChatPrompt({ selections: ['alpha', 'beta'], question: 'why?' })
+  assert.match(text, /> alpha\n\n> beta/)
+  assert.match(text, /these excerpts/)
+  assert.match(text, /Question: why\?/)
+})
+
 test('buildSideChatSystemPrompt includes the role and transcript', () => {
   const text = buildSideChatSystemPrompt({
     parentSessionId: 'session-main',
@@ -113,11 +120,20 @@ test('normalizeOpenPayload trims, validates, and truncates', () => {
     value: {
       action: 'open',
       childSessionId: CHILD,
-      selection: 'hello',
+      selections: ['hello'],
       question: 'why?',
       label: 'Side chat',
     },
   })
+})
+
+test('normalizeOpenPayload accepts multiple selections and enforces the total budget', () => {
+  const base = { action: 'open', childSessionId: CHILD, question: '' }
+  const ok = normalizeOpenPayload({ ...base, selections: ['alpha', 'beta'] }, LIMITS)
+  assert.equal(ok.ok, true)
+  assert.deepEqual(ok.value.selections, ['alpha', 'beta'])
+  const oversized = normalizeOpenPayload({ ...base, selections: ['x'.repeat(15), 'y'.repeat(6)] }, LIMITS)
+  assert.equal(oversized.ok, false)
 })
 
 test('normalizeOpenPayload rejects empty, oversized, bad-id, and bad-action payloads', () => {
