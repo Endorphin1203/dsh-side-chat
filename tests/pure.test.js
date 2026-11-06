@@ -129,6 +129,16 @@ test('normalizeOpenPayload rejects empty, oversized, bad-id, and bad-action payl
   assert.equal(normalizeOpenPayload({ ...base, question: 'x'.repeat(11) }, LIMITS).ok, false)
 })
 
+test('normalizeOpenPayload accepts an optional provider/model pair', () => {
+  const base = { action: 'open', childSessionId: CHILD, selection: 'hello', question: '' }
+  const ok = normalizeOpenPayload({ ...base, provider: 'deepseek', model: 'deepseek-chat' }, LIMITS)
+  assert.equal(ok.ok, true)
+  assert.equal(ok.value.provider, 'deepseek')
+  assert.equal(ok.value.model, 'deepseek-chat')
+  assert.equal(normalizeOpenPayload({ ...base, provider: 'deepseek' }, LIMITS).ok, false)
+  assert.equal(normalizeOpenPayload({ ...base, model: 'deepseek-chat' }, LIMITS).ok, false)
+})
+
 test('normalizeEndPayload accepts only side-chat ids and the end action', () => {
   assert.deepEqual(normalizeEndPayload({ action: 'end', childSessionId: CHILD }), {
     ok: true,
