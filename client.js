@@ -593,7 +593,7 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('conversation.chat.text-interaction', () => ctx.slots.register({
           name: 'conversation.chat.text-interaction',
           key,
-          priority: 100,
+          priority: -100,
           locale: NS,
         }, SideChatSelectionAction))
       }
