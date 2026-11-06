@@ -147,7 +147,7 @@ window.__ModuleLoader__.load({
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin: 0 12px 16px;
+        margin: 0 12px 24px;
         padding: 10px;
         border: 1px solid var(--dsw-alias-border-l1);
         border-radius: 12px;
@@ -201,26 +201,54 @@ window.__ModuleLoader__.load({
         gap: 8px;
         min-width: 0;
       }
-      .dsh-side-chat-model {
+      .dsh-side-chat-model-trigger {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         max-width: 180px;
-        min-width: 0;
-        padding: 2px 0;
-        border: 0;
-        background: transparent;
+        height: 28px;
+        padding: 0 6px;
+        border-radius: 6px;
         color: var(--dsw-alias-label-secondary);
-        font: inherit;
         font-size: 12px;
         line-height: 18px;
-        text-overflow: ellipsis;
         cursor: pointer;
       }
-      .dsh-side-chat-model:disabled {
+      .dsh-side-chat-model-trigger:hover {
+        background: var(--dsw-alias-bg-layer-2);
+      }
+      .dsh-side-chat-model-trigger:focus-within {
+        outline: 2px solid var(--dsw-alias-brand-primary);
+        outline-offset: 1px;
+      }
+      .dsh-side-chat-model-trigger[data-disabled="true"] {
         opacity: 0.6;
         cursor: default;
       }
-      .dsh-side-chat-model:focus-visible {
-        outline: 2px solid var(--dsw-alias-brand-primary);
-        outline-offset: 1px;
+      .dsh-side-chat-model-icon,
+      .dsh-side-chat-model-chevron {
+        flex: none;
+      }
+      .dsh-side-chat-model-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dsh-side-chat-model-select {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        border: 0;
+        padding: 0;
+        font: inherit;
+        cursor: pointer;
+      }
+      .dsh-side-chat-model-select:disabled {
+        cursor: default;
       }
       .dsh-side-chat-send {
         display: inline-flex;
@@ -589,15 +617,6 @@ window.__ModuleLoader__.load({
               h('div', { className: 'dsh-side-chat-draft-note' }, t('draft.expiredNote'))))
         }
 
-        const close = () => {
-          if (draftId !== undefined) drafts.delete(draftId)
-          try {
-            ctx.sidebarRight.close(tab.id)
-          } catch (closeError) {
-            console.error('[side-chat] cannot close draft:', closeError)
-          }
-        }
-
         const submit = async () => {
           if (busy || question.trim() === '') return
           setBusy(true)
@@ -627,11 +646,52 @@ window.__ModuleLoader__.load({
           for (const model of group.models ?? []) {
             options.push({
               value: `${group.id}${MODEL_SEPARATOR}${model.id}`,
+              name: model.name,
               label: `${group.name} · ${model.name}`,
             })
           }
         }
 
+        const selectedModel = options.find(option => option.value === modelValue)
+        const modelLabel = selectedModel === undefined ? t('draft.modelInherit') : selectedModel.name
+        const modelIcon = h('svg', {
+          viewBox: '0 0 16 16',
+          width: 16,
+          height: 16,
+          className: 'dsh-side-chat-model-icon',
+          'aria-hidden': true,
+        },
+        h('rect', {
+          x: 2.5,
+          y: 4,
+          width: 11,
+          height: 8,
+          rx: 2,
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.3,
+        }),
+        h('path', {
+          d: 'M5.5 8h5',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.3,
+          'stroke-linecap': 'round',
+        }))
+        const chevronIcon = h('svg', {
+          viewBox: '0 0 16 16',
+          width: 12,
+          height: 12,
+          className: 'dsh-side-chat-model-chevron',
+          'aria-hidden': true,
+        }, h('path', {
+          d: 'M4 6l4 4 4-4',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.6,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+        }))
         const preview = draft.text.length > 500 ? `${draft.text.slice(0, 500)}…` : draft.text
         const sendIcon = h('svg', {
           viewBox: '0 0 16 16',
@@ -673,15 +733,23 @@ window.__ModuleLoader__.load({
             error === null ? null : h('div', { className: 'dsh-side-chat-error', role: 'alert' }, error),
             h('div', { className: 'dsh-side-chat-composer-toolbar' },
               h('div', { className: 'dsh-side-chat-composer-actions' },
+                h('div', {
+                  className: 'dsh-side-chat-model-trigger',
+                  'data-disabled': busy ? 'true' : undefined,
+                  title: t('draft.model'),
+                },
+                modelIcon,
+                h('span', { className: 'dsh-side-chat-model-label' }, modelLabel),
+                chevronIcon,
                 h('select', {
-                  className: 'dsh-side-chat-model',
+                  className: 'dsh-side-chat-model-select',
                   value: modelValue,
                   disabled: busy,
                   'aria-label': t('draft.model'),
                   onChange: event => setModelValue(event.target.value),
                 },
                 h('option', { value: '' }, t('draft.modelInherit')),
-                ...options.map(option => h('option', { value: option.value, key: option.value }, option.label))),
+                ...options.map(option => h('option', { value: option.value, key: option.value }, option.label)))),
                 h('button', {
                   type: 'button',
                   className: 'dsh-side-chat-send',
