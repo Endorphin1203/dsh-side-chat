@@ -147,7 +147,7 @@ window.__ModuleLoader__.load({
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin: 12px;
+        margin: 0 12px 16px;
         padding: 10px;
         border: 1px solid var(--dsw-alias-border-l1);
         border-radius: 12px;
@@ -192,11 +192,17 @@ window.__ModuleLoader__.load({
       .dsh-side-chat-composer-toolbar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
         gap: 8px;
       }
+      .dsh-side-chat-composer-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
       .dsh-side-chat-model {
-        max-width: 200px;
+        max-width: 180px;
         min-width: 0;
         padding: 2px 0;
         border: 0;
@@ -666,23 +672,24 @@ window.__ModuleLoader__.load({
             }),
             error === null ? null : h('div', { className: 'dsh-side-chat-error', role: 'alert' }, error),
             h('div', { className: 'dsh-side-chat-composer-toolbar' },
-              h('select', {
-                className: 'dsh-side-chat-model',
-                value: modelValue,
-                disabled: busy,
-                'aria-label': t('draft.model'),
-                onChange: event => setModelValue(event.target.value),
-              },
-              h('option', { value: '' }, t('draft.modelInherit')),
-              ...options.map(option => h('option', { value: option.value, key: option.value }, option.label))),
-              h('button', {
-                type: 'button',
-                className: 'dsh-side-chat-send',
-                disabled: busy || question.trim() === '',
-                'aria-label': busy ? t('draft.busy') : t('draft.submit'),
-                title: busy ? t('draft.busy') : t('draft.submit'),
-                onClick: () => void submit(),
-              }, sendIcon))))
+              h('div', { className: 'dsh-side-chat-composer-actions' },
+                h('select', {
+                  className: 'dsh-side-chat-model',
+                  value: modelValue,
+                  disabled: busy,
+                  'aria-label': t('draft.model'),
+                  onChange: event => setModelValue(event.target.value),
+                },
+                h('option', { value: '' }, t('draft.modelInherit')),
+                ...options.map(option => h('option', { value: option.value, key: option.value }, option.label))),
+                h('button', {
+                  type: 'button',
+                  className: 'dsh-side-chat-send',
+                  disabled: busy || question.trim() === '',
+                  'aria-label': busy ? t('draft.busy') : t('draft.submit'),
+                  title: busy ? t('draft.busy') : t('draft.submit'),
+                  onClick: () => void submit(),
+                }, sendIcon)))))
       }
 
       ctx.effect(() => {
