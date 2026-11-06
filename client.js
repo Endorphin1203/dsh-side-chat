@@ -295,30 +295,32 @@ window.__ModuleLoader__.load({
         min-width: 0;
       }
       .dsh-side-chat-model-trigger {
-        display: inline-flex;
+        display: flex;
         align-items: center;
         gap: 4px;
-        max-width: 220px;
+        min-width: 0;
+        max-width: 360px;
         height: 28px;
-        padding: 0 6px;
+        padding: 0 4px 0 8px;
         border: 0;
-        border-radius: 6px;
+        border-radius: var(--dsw-radius-sm, 6px);
         background: transparent;
         color: var(--dsw-alias-label-secondary);
         font: inherit;
-        font-size: 12px;
-        line-height: 18px;
+        font-size: 13px;
+        line-height: 20px;
+        font-weight: 400;
         cursor: pointer;
       }
-      .dsh-side-chat-model-trigger:hover {
-        background: var(--dsw-alias-bg-layer-2);
+      .dsh-side-chat-model-trigger:hover:not(:disabled) {
+        background: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-2));
       }
       .dsh-side-chat-model-trigger:focus-visible {
-        outline: 2px solid var(--dsw-alias-brand-primary);
-        outline-offset: 1px;
+        outline: none;
+        box-shadow: 0 0 0 2px var(--dsw-focus-ring-color, var(--dsw-alias-brand-primary));
       }
       .dsh-side-chat-model-trigger:disabled {
-        opacity: 0.6;
+        color: var(--dsw-alias-label-dimmed, var(--dsw-alias-label-secondary));
         cursor: default;
       }
       .dsh-side-chat-model-icon,
@@ -330,111 +332,110 @@ window.__ModuleLoader__.load({
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-size: 13px;
+        line-height: 20px;
+      }
+      .dsh-side-chat-model-chevron {
+        color: var(--dsw-alias-label-caption, var(--dsw-alias-label-secondary));
+        transition: transform 120ms ease;
+      }
+      .dsh-side-chat-model-trigger[aria-expanded="true"] .dsh-side-chat-model-chevron {
+        transform: rotate(180deg);
+      }
+      .dsh-side-chat-model-effort {
+        flex-shrink: 1000;
+        min-width: 0;
+        overflow: hidden;
+        color: var(--dsw-alias-label-caption, var(--dsw-alias-label-secondary));
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .dsh-side-chat-model-menu {
+        box-sizing: border-box;
         position: fixed;
-        z-index: 1002;
-        width: 300px;
-        max-height: min(360px, 60vh);
+        z-index: 1100;
+        display: flex;
+        flex-direction: column;
+        width: max-content;
+        min-width: min(240px, calc(100vw - 32px));
+        max-width: min(420px, calc(100vw - 32px));
+        max-height: min(360px, calc(100vh - 96px));
         overflow: auto;
-        padding: 6px;
-        border: 1px solid var(--dsw-alias-border-l1);
-        border-radius: 10px;
+        padding: 4px;
+        border: 0;
+        border-radius: var(--dsw-radius-lg, 10px);
         background: var(--dsw-alias-bg-overlay);
-        color: var(--dsw-alias-label-primary);
+        --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
         box-shadow: var(--dsw-elevation-prominent, 0 16px 48px rgba(0, 0, 0, 0.24));
+        color: var(--dsw-alias-label-primary);
       }
       .dsh-side-chat-model-group {
         padding: 8px 8px 4px;
-        color: var(--dsw-alias-label-secondary);
-        font-size: 11px;
-        line-height: 14px;
+        color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
+        font-size: 12px;
+        line-height: 18px;
       }
       .dsh-side-chat-model-option {
+        box-sizing: border-box;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-        width: 100%;
-        padding: 6px 8px;
+        gap: 6px;
+        width: auto;
+        min-width: 100%;
+        min-height: 34px;
+        padding: 5px 7px;
         border: 0;
-        border-radius: 6px;
+        border-radius: var(--dsw-radius-md, 8px);
         background: transparent;
-        color: var(--dsw-alias-label-primary);
+        color: inherit;
         font: inherit;
         font-size: 13px;
         line-height: 18px;
         text-align: left;
         cursor: pointer;
       }
-      .dsh-side-chat-model-option:hover,
-      .dsh-side-chat-model-option[data-active="true"] {
-        background: var(--dsw-alias-bg-layer-2);
+      .dsh-side-chat-model-option:hover:not(:disabled),
+      .dsh-side-chat-model-option:focus-visible {
+        background: var(--dsw-alias-interactive-bg-hover, var(--dsw-alias-bg-layer-2));
       }
       .dsh-side-chat-model-option:disabled {
-        opacity: 0.55;
+        color: var(--dsw-alias-label-dimmed, var(--dsw-alias-label-secondary));
         cursor: default;
       }
       .dsh-side-chat-model-option:disabled:hover {
         background: transparent;
       }
       .dsh-side-chat-model-option-label {
+        flex: 1;
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        font-size: 13px;
+        line-height: 18px;
       }
       .dsh-side-chat-model-effort-section {
         position: sticky;
         top: 0;
         z-index: 1;
-        margin: 0 -6px 4px;
-        padding: 6px;
+        margin: 0 -4px 4px;
+        padding: 4px;
         border-bottom: 1px solid var(--dsw-alias-border-l1);
         background: var(--dsw-alias-bg-overlay);
       }
-      .dsh-side-chat-model-effort-options {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-      }
-      .dsh-side-chat-model-effort-chip {
-        padding: 4px 8px;
-        border: 1px solid var(--dsw-alias-border-l1);
-        border-radius: 6px;
-        background: transparent;
-        color: var(--dsw-alias-label-primary);
-        font: inherit;
-        font-size: 12px;
-        line-height: 16px;
-        cursor: pointer;
-      }
-      .dsh-side-chat-model-effort-chip:hover,
-      .dsh-side-chat-model-effort-chip[data-active="true"] {
-        background: var(--dsw-alias-bg-layer-2);
-      }
-      .dsh-side-chat-model-effort-chip:focus-visible {
-        outline: 2px solid var(--dsw-alias-brand-primary);
-        outline-offset: 1px;
-      }
-      .dsh-side-chat-model-effort {
-        max-width: 90px;
-        overflow: hidden;
-        color: var(--dsw-alias-label-secondary);
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .dsh-side-chat-model-inherit {
-        margin-bottom: 4px;
-        border-bottom: 1px solid var(--dsw-alias-border-l1);
-        border-radius: 6px 6px 0 0;
-      }
       .dsh-side-chat-model-check {
-        flex: none;
+        display: grid;
+        place-items: center;
+        flex: 0 0 14px;
+        color: var(--dsw-alias-label-primary);
+      }
+      .dsh-side-chat-model-check svg {
+        width: 14px;
+        height: 14px;
       }
       .dsh-side-chat-model-empty {
         padding: 8px;
-        color: var(--dsw-alias-label-secondary);
+        color: var(--dsw-alias-label-tertiary, var(--dsw-alias-label-secondary));
         font-size: 12px;
         line-height: 18px;
       }
@@ -1142,32 +1143,34 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, t('draft.effort')),
             effortOptions.length === 0
               ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.effortNone'))
-              : h('div', { className: 'dsh-side-chat-model-effort-options' },
+              : h(React.Fragment, null,
                 inheritEffort
                   ? h('button', {
                       type: 'button',
                       role: 'menuitemradio',
                       'aria-checked': effortValue === '',
-                      className: 'dsh-side-chat-model-effort-chip',
-                      'data-active': effortValue === '' ? 'true' : undefined,
+                      className: 'dsh-side-chat-model-option',
                       onClick: () => {
                         setEffortValue('')
                         closeMenu()
                       },
-                    }, t('draft.effortInherit'))
+                    },
+                    h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.effortInherit')),
+                    effortValue === '' ? checkIcon : null)
                   : null,
                 ...effortOptions.map(effort => h('button', {
                   key: effort.id,
                   type: 'button',
                   role: 'menuitemradio',
                   'aria-checked': effortValue === effort.id,
-                  className: 'dsh-side-chat-model-effort-chip',
-                  'data-active': effortValue === effort.id ? 'true' : undefined,
+                  className: 'dsh-side-chat-model-option',
                   onClick: () => {
                     setEffortValue(effort.id)
                     closeMenu()
                   },
-                }, effort.name))))
+                },
+                h('span', { className: 'dsh-side-chat-model-option-label' }, effort.name),
+                effortValue === effort.id ? checkIcon : null))))
         const modelList = options.length === 0
           ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.modelEmpty'))
           : h(React.Fragment, null,
