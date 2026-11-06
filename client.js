@@ -2,6 +2,7 @@ window.__ModuleLoader__.load({
   id: '@local/dsh-side-chat',
   factory(require) {
     const React = require('react')
+    const ReactDOM = require('react-dom')
     const h = React.createElement
 
     const NS = 'sideChat'
@@ -33,6 +34,8 @@ window.__ModuleLoader__.load({
       'draft.expiredNote': '请重新在对话中选中文字。',
       'draft.model': '模型',
       'draft.modelInherit': '跟随主会话',
+      'draft.modelSearch': '搜索模型…',
+      'draft.modelEmpty': '没有匹配的模型',
       'error.tooLong': '选中文字过长。',
       'error.command': '侧边聊天命令执行失败。',
       'error.unavailable': '当前版本没有可用的侧边聊天。',
@@ -57,6 +60,8 @@ window.__ModuleLoader__.load({
       'draft.expiredNote': 'Select text in the conversation to start again.',
       'draft.model': 'Model',
       'draft.modelInherit': 'Follow main session',
+      'draft.modelSearch': 'Search models…',
+      'draft.modelEmpty': 'No matching models',
       'error.tooLong': 'The selection is too long.',
       'error.command': 'The side-chat command failed.',
       'error.unavailable': 'Side chat is unavailable in this build.',
@@ -147,7 +152,7 @@ window.__ModuleLoader__.load({
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin: 0 12px 24px;
+        margin: 0 12px 32px;
         padding: 10px;
         border: 1px solid var(--dsw-alias-border-l1);
         border-radius: 12px;
@@ -202,15 +207,17 @@ window.__ModuleLoader__.load({
         min-width: 0;
       }
       .dsh-side-chat-model-trigger {
-        position: relative;
         display: inline-flex;
         align-items: center;
         gap: 4px;
         max-width: 180px;
         height: 28px;
         padding: 0 6px;
+        border: 0;
         border-radius: 6px;
+        background: transparent;
         color: var(--dsw-alias-label-secondary);
+        font: inherit;
         font-size: 12px;
         line-height: 18px;
         cursor: pointer;
@@ -218,11 +225,11 @@ window.__ModuleLoader__.load({
       .dsh-side-chat-model-trigger:hover {
         background: var(--dsw-alias-bg-layer-2);
       }
-      .dsh-side-chat-model-trigger:focus-within {
+      .dsh-side-chat-model-trigger:focus-visible {
         outline: 2px solid var(--dsw-alias-brand-primary);
         outline-offset: 1px;
       }
-      .dsh-side-chat-model-trigger[data-disabled="true"] {
+      .dsh-side-chat-model-trigger:disabled {
         opacity: 0.6;
         cursor: default;
       }
@@ -236,19 +243,83 @@ window.__ModuleLoader__.load({
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .dsh-side-chat-model-select {
-        position: absolute;
-        inset: 0;
+      .dsh-side-chat-model-menu {
+        position: fixed;
+        z-index: 1002;
+        width: 300px;
+        max-height: min(360px, 60vh);
+        overflow: auto;
+        padding: 6px;
+        border: 1px solid var(--dsw-alias-border-l1);
+        border-radius: 10px;
+        background: var(--dsw-alias-bg-overlay);
+        color: var(--dsw-alias-label-primary);
+        box-shadow: var(--dsw-elevation-prominent, 0 16px 48px rgba(0, 0, 0, 0.24));
+      }
+      .dsh-side-chat-model-search {
+        box-sizing: border-box;
         width: 100%;
-        height: 100%;
-        opacity: 0;
-        border: 0;
-        padding: 0;
+        height: 30px;
+        margin-bottom: 6px;
+        padding: 0 8px;
+        border: 1px solid var(--dsw-alias-border-l1);
+        border-radius: 6px;
+        outline: none;
+        background: var(--dsw-alias-bg-layer-1);
+        color: var(--dsw-alias-label-primary);
         font: inherit;
+        font-size: 12px;
+        line-height: 18px;
+      }
+      .dsh-side-chat-model-search:focus {
+        border-color: var(--dsw-alias-brand-primary);
+      }
+      .dsh-side-chat-model-group {
+        padding: 8px 8px 4px;
+        color: var(--dsw-alias-label-secondary);
+        font-size: 11px;
+        line-height: 14px;
+      }
+      .dsh-side-chat-model-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 8px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--dsw-alias-label-primary);
+        font: inherit;
+        font-size: 13px;
+        line-height: 18px;
+        text-align: left;
         cursor: pointer;
       }
-      .dsh-side-chat-model-select:disabled {
-        cursor: default;
+      .dsh-side-chat-model-option:hover,
+      .dsh-side-chat-model-option[data-active="true"] {
+        background: var(--dsw-alias-bg-layer-2);
+      }
+      .dsh-side-chat-model-option-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dsh-side-chat-model-inherit {
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--dsw-alias-border-l1);
+        border-radius: 6px 6px 0 0;
+      }
+      .dsh-side-chat-model-check {
+        flex: none;
+      }
+      .dsh-side-chat-model-empty {
+        padding: 8px;
+        color: var(--dsw-alias-label-secondary);
+        font-size: 12px;
+        line-height: 18px;
       }
       .dsh-side-chat-send {
         display: inline-flex;
@@ -572,6 +643,12 @@ window.__ModuleLoader__.load({
         const [catalog, setCatalog] = React.useState(null)
         const [modelValue, setModelValue] = React.useState('')
         const inputRef = React.useRef(null)
+        const triggerRef = React.useRef(null)
+        const menuRef = React.useRef(null)
+        const searchRef = React.useRef(null)
+        const [menuOpen, setMenuOpen] = React.useState(false)
+        const [menuPosition, setMenuPosition] = React.useState({ left: 8, bottom: 8 })
+        const [search, setSearch] = React.useState('')
         const inputId = `dsh-side-chat-question-${draftId ?? 'expired'}`
 
         React.useEffect(() => {
@@ -610,6 +687,32 @@ window.__ModuleLoader__.load({
           return () => window.clearTimeout(timer)
         }, [draft, tab.id])
 
+        React.useEffect(() => {
+          if (!menuOpen) return undefined
+          const onPointerDown = (event) => {
+            const target = event.target
+            if (!(target instanceof Node)) return
+            if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+            setMenuOpen(false)
+          }
+          const onKeyDown = (event) => {
+            if (event.key !== 'Escape') return
+            setMenuOpen(false)
+            triggerRef.current?.focus()
+          }
+          const onResize = () => setMenuOpen(false)
+          document.addEventListener('pointerdown', onPointerDown)
+          document.addEventListener('keydown', onKeyDown)
+          window.addEventListener('resize', onResize)
+          const timer = window.setTimeout(() => searchRef.current?.focus(), 0)
+          return () => {
+            document.removeEventListener('pointerdown', onPointerDown)
+            document.removeEventListener('keydown', onKeyDown)
+            window.removeEventListener('resize', onResize)
+            window.clearTimeout(timer)
+          }
+        }, [menuOpen])
+
         if (draft === undefined) {
           return h('div', { className: 'dsh-side-chat-draft' },
             h('div', { className: 'dsh-side-chat-draft-empty' },
@@ -647,6 +750,7 @@ window.__ModuleLoader__.load({
             options.push({
               value: `${group.id}${MODEL_SEPARATOR}${model.id}`,
               name: model.name,
+              groupName: group.name,
               label: `${group.name} · ${model.name}`,
             })
           }
@@ -692,6 +796,96 @@ window.__ModuleLoader__.load({
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
         }))
+        const openMenu = () => {
+          const rect = triggerRef.current?.getBoundingClientRect()
+          if (rect === undefined || rect === null) return
+          const width = 300
+          const left = Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - width - 8))
+          const bottom = Math.max(8, window.innerHeight - rect.top + 6)
+          setMenuPosition({ left, bottom })
+          setMenuOpen(true)
+        }
+        const closeMenu = () => {
+          setMenuOpen(false)
+          setSearch('')
+        }
+        const query = search.trim().toLowerCase()
+        const filtered = query === ''
+          ? options
+          : options.filter(option => option.label.toLowerCase().includes(query))
+        const groups = []
+        for (const option of filtered) {
+          let group = groups.find(item => item.name === option.groupName)
+          if (group === undefined) {
+            group = { name: option.groupName, options: [] }
+            groups.push(group)
+          }
+          group.options.push(option)
+        }
+        const checkIcon = h('svg', {
+          viewBox: '0 0 16 16',
+          width: 14,
+          height: 14,
+          className: 'dsh-side-chat-model-check',
+          'aria-hidden': true,
+        }, h('path', {
+          d: 'M3.5 8.5l3 3 6-7',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.7,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+        }))
+        const modelMenu = menuOpen ? ReactDOM.createPortal(
+          h('div', {
+            className: 'dsh-side-chat-model-menu',
+            role: 'menu',
+            ref: menuRef,
+            style: { left: menuPosition.left, bottom: menuPosition.bottom },
+          },
+          h('input', {
+            ref: searchRef,
+            className: 'dsh-side-chat-model-search',
+            value: search,
+            placeholder: t('draft.modelSearch'),
+            'aria-label': t('draft.modelSearch'),
+            onChange: event => setSearch(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key !== 'Escape') return
+              event.stopPropagation()
+              closeMenu()
+              triggerRef.current?.focus()
+            },
+          }),
+          h('button', {
+            type: 'button',
+            role: 'menuitemradio',
+            'aria-checked': modelValue === '',
+            className: 'dsh-side-chat-model-option dsh-side-chat-model-inherit',
+            onClick: () => {
+              setModelValue('')
+              closeMenu()
+            },
+          },
+          h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.modelInherit')),
+          modelValue === '' ? checkIcon : null),
+          ...groups.map(group => h(React.Fragment, { key: `group-${group.name}` },
+            h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, group.name),
+            ...group.options.map(option => h('button', {
+              key: option.value,
+              type: 'button',
+              role: 'menuitemradio',
+              'aria-checked': modelValue === option.value,
+              className: 'dsh-side-chat-model-option',
+              onClick: () => {
+                setModelValue(option.value)
+                closeMenu()
+              },
+            },
+            h('span', { className: 'dsh-side-chat-model-option-label' }, option.name),
+            modelValue === option.value ? checkIcon : null)))),
+          filtered.length === 0 ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.modelEmpty')) : null),
+          document.body) : null
         const preview = draft.text.length > 500 ? `${draft.text.slice(0, 500)}…` : draft.text
         const sendIcon = h('svg', {
           viewBox: '0 0 16 16',
@@ -733,23 +927,23 @@ window.__ModuleLoader__.load({
             error === null ? null : h('div', { className: 'dsh-side-chat-error', role: 'alert' }, error),
             h('div', { className: 'dsh-side-chat-composer-toolbar' },
               h('div', { className: 'dsh-side-chat-composer-actions' },
-                h('div', {
+                h('button', {
+                  ref: triggerRef,
+                  type: 'button',
                   className: 'dsh-side-chat-model-trigger',
-                  'data-disabled': busy ? 'true' : undefined,
+                  disabled: busy,
+                  'aria-haspopup': 'menu',
+                  'aria-expanded': menuOpen,
+                  'aria-label': t('draft.model'),
                   title: t('draft.model'),
+                  onClick: () => {
+                    if (menuOpen) closeMenu()
+                    else openMenu()
+                  },
                 },
                 modelIcon,
                 h('span', { className: 'dsh-side-chat-model-label' }, modelLabel),
-                chevronIcon,
-                h('select', {
-                  className: 'dsh-side-chat-model-select',
-                  value: modelValue,
-                  disabled: busy,
-                  'aria-label': t('draft.model'),
-                  onChange: event => setModelValue(event.target.value),
-                },
-                h('option', { value: '' }, t('draft.modelInherit')),
-                ...options.map(option => h('option', { value: option.value, key: option.value }, option.label)))),
+                chevronIcon),
                 h('button', {
                   type: 'button',
                   className: 'dsh-side-chat-send',
@@ -757,7 +951,7 @@ window.__ModuleLoader__.load({
                   'aria-label': busy ? t('draft.busy') : t('draft.submit'),
                   title: busy ? t('draft.busy') : t('draft.submit'),
                   onClick: () => void submit(),
-                }, sendIcon)))))
+                }, sendIcon)))), modelMenu)
       }
 
       ctx.effect(() => {
