@@ -28,7 +28,9 @@ window.__ModuleLoader__.load({
       'draft.placeholder': '关于这段文字，你想问什么？',
       'draft.submit': '提问',
       'draft.busy': '正在打开…',
-      'draft.removeQuote': '移除引用',
+      'draft.selectedCount': '已选 {count} 个文本片段',
+      'draft.clearQuotes': '清除引用',
+      'draft.summaryTitle': '已选文本片段',
       'draft.emptySelection': '请先选中一段文字。',
       'draft.openFailed': '无法打开侧边聊天。',
       'draft.expired': '这个草稿已失效',
@@ -59,7 +61,9 @@ window.__ModuleLoader__.load({
       'draft.placeholder': 'Ask about this excerpt…',
       'draft.submit': 'Ask',
       'draft.busy': 'Opening…',
-      'draft.removeQuote': 'Remove quote',
+      'draft.selectedCount': '{count} selected excerpt(s)',
+      'draft.clearQuotes': 'Clear quotes',
+      'draft.summaryTitle': 'Selected excerpts',
       'draft.emptySelection': 'Select some text first.',
       'draft.openFailed': 'Could not open the side chat.',
       'draft.expired': 'This draft expired',
@@ -169,21 +173,83 @@ window.__ModuleLoader__.load({
         background: var(--dsw-alias-bg-layer-1);
         box-shadow: var(--dsw-elevation-panel, 0 4px 16px rgba(0, 0, 0, 0.14));
       }
-      .dsh-side-chat-quotes {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        max-height: 220px;
-        overflow: auto;
+      .dsh-side-chat-selection-summary {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        width: fit-content;
+        max-width: 100%;
+        padding: 3px 6px;
+        border-radius: 6px;
+        background: var(--dsw-alias-bg-layer-2);
+        color: var(--dsw-alias-label-secondary);
+        font-size: 12px;
+        line-height: 18px;
+        cursor: default;
       }
-      .dsh-side-chat-quote-item {
-        position: relative;
+      .dsh-side-chat-selection-summary-label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dsh-side-chat-selection-clear {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex: none;
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--dsw-alias-label-secondary);
+        opacity: 0;
+        cursor: pointer;
+      }
+      .dsh-side-chat-selection-summary:hover .dsh-side-chat-selection-clear,
+      .dsh-side-chat-selection-summary:focus-within .dsh-side-chat-selection-clear {
+        opacity: 1;
+      }
+      .dsh-side-chat-selection-clear:hover {
+        background: var(--dsw-alias-bg-layer-1);
+        color: var(--dsw-alias-label-primary);
+      }
+      .dsh-side-chat-selection-clear:focus-visible {
+        outline: 2px solid var(--dsw-alias-brand-primary);
+        outline-offset: 1px;
+      }
+      .dsh-side-chat-summary-popover {
+        position: fixed;
+        z-index: 1003;
+        width: min(360px, calc(100vw - 24px));
+        max-height: min(320px, 60vh);
+        overflow: auto;
+        padding: 10px;
+        border: 1px solid var(--dsw-alias-border-l1);
+        border-radius: 10px;
+        background: var(--dsw-alias-bg-overlay);
+        color: var(--dsw-alias-label-primary);
+        box-shadow: var(--dsw-elevation-prominent, 0 16px 48px rgba(0, 0, 0, 0.24));
+      }
+      .dsh-side-chat-summary-title {
+        margin-bottom: 6px;
+        color: var(--dsw-alias-label-secondary);
+        font-size: 12px;
+        line-height: 18px;
+      }
+      .dsh-side-chat-summary-popover .dsh-side-chat-quote {
+        margin-bottom: 6px;
+      }
+      .dsh-side-chat-summary-popover .dsh-side-chat-quote:last-child {
+        margin-bottom: 0;
       }
       .dsh-side-chat-quote {
         margin: 0;
         max-height: 120px;
         overflow: auto;
-        padding: 6px 28px 6px 8px;
+        padding: 6px 8px;
         border-left: 2px solid var(--dsw-alias-border-l2);
         border-radius: 6px;
         background: var(--dsw-alias-bg-layer-2);
@@ -192,30 +258,6 @@ window.__ModuleLoader__.load({
         line-height: 18px;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
-      }
-      .dsh-side-chat-quote-remove {
-        position: absolute;
-        top: 4px;
-        right: 4px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 20px;
-        height: 20px;
-        padding: 0;
-        border: 0;
-        border-radius: 4px;
-        background: transparent;
-        color: var(--dsw-alias-label-secondary);
-        cursor: pointer;
-      }
-      .dsh-side-chat-quote-remove:hover {
-        background: var(--dsw-alias-bg-layer-1);
-        color: var(--dsw-alias-label-primary);
-      }
-      .dsh-side-chat-quote-remove:focus-visible {
-        outline: 2px solid var(--dsw-alias-brand-primary);
-        outline-offset: 1px;
       }
       .dsh-side-chat-composer-input {
         box-sizing: border-box;
@@ -773,6 +815,10 @@ window.__ModuleLoader__.load({
         const menuRef = React.useRef(null)
         const [menuOpen, setMenuOpen] = React.useState(false)
         const [menuPosition, setMenuPosition] = React.useState({ left: 8, bottom: 8 })
+        const [summaryOpen, setSummaryOpen] = React.useState(false)
+        const [summaryPosition, setSummaryPosition] = React.useState({ left: 8, bottom: 8 })
+        const summaryRef = React.useRef(null)
+        const summaryTimer = React.useRef(undefined)
         const inputId = `dsh-side-chat-question-${draftId ?? 'expired'}`
 
         React.useEffect(() => {
@@ -790,6 +836,10 @@ window.__ModuleLoader__.load({
         React.useEffect(() => () => {
           if (draftId !== undefined) drafts.delete(draftId)
         }, [draftId])
+
+        React.useEffect(() => () => {
+          if (summaryTimer.current !== undefined) window.clearTimeout(summaryTimer.current)
+        }, [])
 
         React.useEffect(() => {
           let cancelled = false
@@ -882,15 +932,34 @@ window.__ModuleLoader__.load({
           setError(result.error)
         }
 
-        const removeSelection = (selectionId) => {
+        const clearSelections = () => {
           if (draftId === undefined) return
           const current = drafts.get(draftId)
           if (current === undefined) return
-          drafts.set(draftId, {
-            ...current,
-            selections: (current.selections ?? []).filter(item => item.id !== selectionId),
-          })
+          drafts.set(draftId, { ...current, selections: [] })
           notifyDrafts()
+          setSummaryOpen(false)
+        }
+
+        const openSummary = () => {
+          if (summaryTimer.current !== undefined) window.clearTimeout(summaryTimer.current)
+          const rect = summaryRef.current?.getBoundingClientRect()
+          if (rect !== undefined && rect !== null) {
+            const width = 360
+            const left = Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - width - 8))
+            const bottom = Math.max(8, window.innerHeight - rect.top + 6)
+            setSummaryPosition({ left, bottom })
+          }
+          setSummaryOpen(true)
+        }
+
+        const closeSummarySoon = () => {
+          if (summaryTimer.current !== undefined) window.clearTimeout(summaryTimer.current)
+          summaryTimer.current = window.setTimeout(() => { setSummaryOpen(false) }, 120)
+        }
+
+        const keepSummary = () => {
+          if (summaryTimer.current !== undefined) window.clearTimeout(summaryTimer.current)
         }
 
         const options = []
@@ -1133,20 +1202,35 @@ window.__ModuleLoader__.load({
           'stroke-width': 1.6,
           'stroke-linecap': 'round',
         }))
-        const quotes = h('div', { className: 'dsh-side-chat-quotes' },
-          ...draft.selections.map(selection => h('div', {
-            className: 'dsh-side-chat-quote-item',
-            key: selection.id,
+        const selectionCount = draft.selections.length
+        const summary = selectionCount === 0 ? null : h('div', {
+          className: 'dsh-side-chat-selection-summary',
+          ref: summaryRef,
+          onMouseEnter: openSummary,
+          onMouseLeave: closeSummarySoon,
+        },
+        h('span', { className: 'dsh-side-chat-selection-summary-label' }, t('draft.selectedCount', { count: selectionCount })),
+        h('button', {
+          type: 'button',
+          className: 'dsh-side-chat-selection-clear',
+          'aria-label': t('draft.clearQuotes'),
+          title: t('draft.clearQuotes'),
+          onClick: clearSelections,
+        }, removeIcon))
+        const summaryPopover = summaryOpen && selectionCount > 0 ? ReactDOM.createPortal(
+          h('div', {
+            className: 'dsh-side-chat-summary-popover',
+            role: 'tooltip',
+            style: { left: summaryPosition.left, bottom: summaryPosition.bottom },
+            onMouseEnter: keepSummary,
+            onMouseLeave: closeSummarySoon,
           },
-          h('blockquote', { className: 'dsh-side-chat-quote' },
-            selection.text.length > 500 ? `${selection.text.slice(0, 500)}…` : selection.text),
-          h('button', {
-            type: 'button',
-            className: 'dsh-side-chat-quote-remove',
-            'aria-label': t('draft.removeQuote'),
-            title: t('draft.removeQuote'),
-            onClick: () => removeSelection(selection.id),
-          }, removeIcon))))
+          h('div', { className: 'dsh-side-chat-summary-title' }, t('draft.summaryTitle')),
+          ...draft.selections.map(selection => h('blockquote', {
+            className: 'dsh-side-chat-quote',
+            key: selection.id,
+          }, selection.text))),
+          document.body) : null
         const sendIcon = h('svg', {
           viewBox: '0 0 16 16',
           width: 16,
@@ -1166,7 +1250,7 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dsh-side-chat-draft-title' }, t('draft.title')),
             h('div', { className: 'dsh-side-chat-draft-note' }, t('draft.note'))),
           h('div', { className: 'dsh-side-chat-composer' },
-            quotes,
+            summary,
             h('textarea', {
               id: inputId,
               ref: inputRef,
@@ -1214,7 +1298,7 @@ window.__ModuleLoader__.load({
                   'aria-label': busy ? t('draft.busy') : t('draft.submit'),
                   title: busy ? t('draft.busy') : t('draft.submit'),
                   onClick: () => void submit(),
-                }, sendIcon)))), modelMenu)
+                }, sendIcon)))), summaryPopover, modelMenu)
       }
 
       ctx.effect(() => {
