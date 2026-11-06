@@ -34,8 +34,12 @@ window.__ModuleLoader__.load({
       'draft.expiredNote': '请重新在对话中选中文字。',
       'draft.model': '模型',
       'draft.modelInherit': '跟随主会话',
-      'draft.modelSearch': '搜索模型…',
-      'draft.modelEmpty': '没有匹配的模型',
+      'draft.modelEmpty': '没有可用模型',
+      'draft.effort': '推理等级',
+      'draft.effortDefault': '默认',
+      'draft.effortNone': '该模型没有可选的推理等级',
+      'draft.effortUnavailable': '先选择模型',
+      'draft.back': '返回',
       'error.tooLong': '选中文字过长。',
       'error.command': '侧边聊天命令执行失败。',
       'error.unavailable': '当前版本没有可用的侧边聊天。',
@@ -60,8 +64,12 @@ window.__ModuleLoader__.load({
       'draft.expiredNote': 'Select text in the conversation to start again.',
       'draft.model': 'Model',
       'draft.modelInherit': 'Follow main session',
-      'draft.modelSearch': 'Search models…',
-      'draft.modelEmpty': 'No matching models',
+      'draft.modelEmpty': 'No models available',
+      'draft.effort': 'Reasoning effort',
+      'draft.effortDefault': 'Default',
+      'draft.effortNone': 'This model has no reasoning levels',
+      'draft.effortUnavailable': 'Select a model first',
+      'draft.back': 'Back',
       'error.tooLong': 'The selection is too long.',
       'error.command': 'The side-chat command failed.',
       'error.unavailable': 'Side chat is unavailable in this build.',
@@ -152,7 +160,7 @@ window.__ModuleLoader__.load({
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin: 0 12px 32px;
+        margin: 0 12px 28px;
         padding: 10px;
         border: 1px solid var(--dsw-alias-border-l1);
         border-radius: 12px;
@@ -210,7 +218,7 @@ window.__ModuleLoader__.load({
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        max-width: 180px;
+        max-width: 220px;
         height: 28px;
         padding: 0 6px;
         border: 0;
@@ -256,24 +264,6 @@ window.__ModuleLoader__.load({
         color: var(--dsw-alias-label-primary);
         box-shadow: var(--dsw-elevation-prominent, 0 16px 48px rgba(0, 0, 0, 0.24));
       }
-      .dsh-side-chat-model-search {
-        box-sizing: border-box;
-        width: 100%;
-        height: 30px;
-        margin-bottom: 6px;
-        padding: 0 8px;
-        border: 1px solid var(--dsw-alias-border-l1);
-        border-radius: 6px;
-        outline: none;
-        background: var(--dsw-alias-bg-layer-1);
-        color: var(--dsw-alias-label-primary);
-        font: inherit;
-        font-size: 12px;
-        line-height: 18px;
-      }
-      .dsh-side-chat-model-search:focus {
-        border-color: var(--dsw-alias-brand-primary);
-      }
       .dsh-side-chat-model-group {
         padding: 8px 8px 4px;
         color: var(--dsw-alias-label-secondary);
@@ -301,9 +291,56 @@ window.__ModuleLoader__.load({
       .dsh-side-chat-model-option[data-active="true"] {
         background: var(--dsw-alias-bg-layer-2);
       }
+      .dsh-side-chat-model-option:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .dsh-side-chat-model-option:disabled:hover {
+        background: transparent;
+      }
       .dsh-side-chat-model-option-label {
         min-width: 0;
         overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dsh-side-chat-model-root-value {
+        max-width: 140px;
+        margin-left: auto;
+        overflow: hidden;
+        color: var(--dsw-alias-label-secondary);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .dsh-side-chat-model-root-chevron {
+        flex: none;
+        color: var(--dsw-alias-label-secondary);
+      }
+      .dsh-side-chat-model-back {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        width: 100%;
+        margin-bottom: 4px;
+        padding: 6px 8px;
+        border: 0;
+        border-bottom: 1px solid var(--dsw-alias-border-l1);
+        border-radius: 6px 6px 0 0;
+        background: transparent;
+        color: var(--dsw-alias-label-secondary);
+        font: inherit;
+        font-size: 12px;
+        line-height: 18px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .dsh-side-chat-model-back:hover {
+        background: var(--dsw-alias-bg-layer-2);
+      }
+      .dsh-side-chat-model-effort {
+        max-width: 90px;
+        overflow: hidden;
+        color: var(--dsw-alias-label-secondary);
         text-overflow: ellipsis;
         white-space: nowrap;
       }
@@ -547,6 +584,9 @@ window.__ModuleLoader__.load({
         if (typeof selectionModel?.provider === 'string' && typeof selectionModel?.model === 'string') {
           payload.provider = selectionModel.provider
           payload.model = selectionModel.model
+          if (typeof selectionModel.reasoningEffort === 'string' && selectionModel.reasoningEffort !== '') {
+            payload.reasoningEffort = selectionModel.reasoningEffort
+          }
         }
 
         let outcome
@@ -642,13 +682,13 @@ window.__ModuleLoader__.load({
         const [error, setError] = React.useState(null)
         const [catalog, setCatalog] = React.useState(null)
         const [modelValue, setModelValue] = React.useState('')
+        const [effortValue, setEffortValue] = React.useState('')
+        const [pane, setPane] = React.useState('root')
         const inputRef = React.useRef(null)
         const triggerRef = React.useRef(null)
         const menuRef = React.useRef(null)
-        const searchRef = React.useRef(null)
         const [menuOpen, setMenuOpen] = React.useState(false)
         const [menuPosition, setMenuPosition] = React.useState({ left: 8, bottom: 8 })
-        const [search, setSearch] = React.useState('')
         const inputId = `dsh-side-chat-question-${draftId ?? 'expired'}`
 
         React.useEffect(() => {
@@ -704,7 +744,7 @@ window.__ModuleLoader__.load({
           document.addEventListener('pointerdown', onPointerDown)
           document.addEventListener('keydown', onKeyDown)
           window.addEventListener('resize', onResize)
-          const timer = window.setTimeout(() => searchRef.current?.focus(), 0)
+          const timer = window.setTimeout(() => menuRef.current?.focus(), 0)
           return () => {
             document.removeEventListener('pointerdown', onPointerDown)
             document.removeEventListener('keydown', onKeyDown)
@@ -728,7 +768,9 @@ window.__ModuleLoader__.load({
             ? {}
             : (() => {
                 const [provider, model] = modelValue.split(MODEL_SEPARATOR)
-                return provider && model ? { provider, model } : {}
+                return provider && model
+                  ? { provider, model, ...(effortValue === '' ? {} : { reasoningEffort: effortValue }) }
+                  : {}
               })()
           const result = await openSideChat(draft.sessionId, draft.text, question, selected)
           if (result.ok) {
@@ -752,6 +794,9 @@ window.__ModuleLoader__.load({
               name: model.name,
               groupName: group.name,
               label: `${group.name} · ${model.name}`,
+              efforts: Array.isArray(model.reasoning?.efforts)
+                ? model.reasoning.efforts.map(effort => ({ id: effort.id, name: effort.name }))
+                : [],
             })
           }
         }
@@ -803,18 +848,14 @@ window.__ModuleLoader__.load({
           const left = Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - width - 8))
           const bottom = Math.max(8, window.innerHeight - rect.top + 6)
           setMenuPosition({ left, bottom })
+          setPane('root')
           setMenuOpen(true)
         }
         const closeMenu = () => {
           setMenuOpen(false)
-          setSearch('')
         }
-        const query = search.trim().toLowerCase()
-        const filtered = query === ''
-          ? options
-          : options.filter(option => option.label.toLowerCase().includes(query))
         const groups = []
-        for (const option of filtered) {
+        for (const option of options) {
           let group = groups.find(item => item.name === option.groupName)
           if (group === undefined) {
             group = { name: option.groupName, options: [] }
@@ -822,6 +863,12 @@ window.__ModuleLoader__.load({
           }
           group.options.push(option)
         }
+        const effortOptions = selectedModel?.efforts ?? []
+        const selectedEffort = effortOptions.find(effort => effort.id === effortValue)
+        const effortLabel = selectedEffort === undefined ? t('draft.effortDefault') : selectedEffort.name
+        const rootEffortLabel = modelValue === ''
+          ? t('draft.effortUnavailable')
+          : effortLabel
         const checkIcon = h('svg', {
           viewBox: '0 0 16 16',
           width: 14,
@@ -836,55 +883,136 @@ window.__ModuleLoader__.load({
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
         }))
+        const chevronRight = h('svg', {
+          viewBox: '0 0 16 16',
+          width: 12,
+          height: 12,
+          className: 'dsh-side-chat-model-root-chevron',
+          'aria-hidden': true,
+        }, h('path', {
+          d: 'M6 4l4 4-4 4',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.6,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+        }))
+        const chevronLeft = h('svg', {
+          viewBox: '0 0 16 16',
+          width: 12,
+          height: 12,
+          'aria-hidden': true,
+        }, h('path', {
+          d: 'M10 4L6 8l4 4',
+          fill: 'none',
+          stroke: 'currentColor',
+          'stroke-width': 1.6,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+        }))
+        const inheritRow = h('button', {
+          type: 'button',
+          role: 'menuitemradio',
+          'aria-checked': modelValue === '',
+          className: 'dsh-side-chat-model-option dsh-side-chat-model-inherit',
+          onClick: () => {
+            setModelValue('')
+            setEffortValue('')
+            closeMenu()
+          },
+        },
+        h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.modelInherit')),
+        modelValue === '' ? checkIcon : null)
+        const modelRow = h('button', {
+          type: 'button',
+          role: 'menuitem',
+          className: 'dsh-side-chat-model-option',
+          onClick: () => setPane('model'),
+        },
+        h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.model')),
+        h('span', { className: 'dsh-side-chat-model-root-value' }, modelLabel),
+        chevronRight)
+        const effortRow = h('button', {
+          type: 'button',
+          role: 'menuitem',
+          className: 'dsh-side-chat-model-option',
+          disabled: modelValue === '',
+          onClick: () => setPane('effort'),
+        },
+        h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.effort')),
+        h('span', { className: 'dsh-side-chat-model-root-value' }, rootEffortLabel),
+        chevronRight)
+        const rootPane = h(React.Fragment, null, inheritRow, modelRow, effortRow)
+        const modelPane = h(React.Fragment, null,
+          h('button', {
+            type: 'button',
+            className: 'dsh-side-chat-model-back',
+            onClick: () => setPane('root'),
+          }, chevronLeft, t('draft.back')),
+          options.length === 0
+            ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.modelEmpty'))
+            : h(React.Fragment, null,
+              ...groups.map(group => h(React.Fragment, { key: `group-${group.name}` },
+                h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, group.name),
+                ...group.options.map(option => h('button', {
+                  key: option.value,
+                  type: 'button',
+                  role: 'menuitemradio',
+                  'aria-checked': modelValue === option.value,
+                  className: 'dsh-side-chat-model-option',
+                  onClick: () => {
+                    setModelValue(option.value)
+                    setEffortValue('')
+                    setPane('root')
+                  },
+                },
+                h('span', { className: 'dsh-side-chat-model-option-label' }, option.name),
+                modelValue === option.value ? checkIcon : null))))))
+        const effortPane = h(React.Fragment, null,
+          h('button', {
+            type: 'button',
+            className: 'dsh-side-chat-model-back',
+            onClick: () => setPane('root'),
+          }, chevronLeft, t('draft.back')),
+          modelValue === ''
+            ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.effortUnavailable'))
+            : effortOptions.length === 0
+              ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.effortNone'))
+              : h(React.Fragment, null,
+                h('button', {
+                  type: 'button',
+                  role: 'menuitemradio',
+                  'aria-checked': effortValue === '',
+                  className: 'dsh-side-chat-model-option',
+                  onClick: () => {
+                    setEffortValue('')
+                    setPane('root')
+                  },
+                },
+                h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.effortDefault')),
+                effortValue === '' ? checkIcon : null),
+                ...effortOptions.map(effort => h('button', {
+                  key: effort.id,
+                  type: 'button',
+                  role: 'menuitemradio',
+                  'aria-checked': effortValue === effort.id,
+                  className: 'dsh-side-chat-model-option',
+                  onClick: () => {
+                    setEffortValue(effort.id)
+                    setPane('root')
+                  },
+                },
+                h('span', { className: 'dsh-side-chat-model-option-label' }, effort.name),
+                effortValue === effort.id ? checkIcon : null))))
+        const menuContent = pane === 'model' ? modelPane : pane === 'effort' ? effortPane : rootPane
         const modelMenu = menuOpen ? ReactDOM.createPortal(
           h('div', {
             className: 'dsh-side-chat-model-menu',
             role: 'menu',
             ref: menuRef,
+            tabIndex: -1,
             style: { left: menuPosition.left, bottom: menuPosition.bottom },
-          },
-          h('input', {
-            ref: searchRef,
-            className: 'dsh-side-chat-model-search',
-            value: search,
-            placeholder: t('draft.modelSearch'),
-            'aria-label': t('draft.modelSearch'),
-            onChange: event => setSearch(event.target.value),
-            onKeyDown: (event) => {
-              if (event.key !== 'Escape') return
-              event.stopPropagation()
-              closeMenu()
-              triggerRef.current?.focus()
-            },
-          }),
-          h('button', {
-            type: 'button',
-            role: 'menuitemradio',
-            'aria-checked': modelValue === '',
-            className: 'dsh-side-chat-model-option dsh-side-chat-model-inherit',
-            onClick: () => {
-              setModelValue('')
-              closeMenu()
-            },
-          },
-          h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.modelInherit')),
-          modelValue === '' ? checkIcon : null),
-          ...groups.map(group => h(React.Fragment, { key: `group-${group.name}` },
-            h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, group.name),
-            ...group.options.map(option => h('button', {
-              key: option.value,
-              type: 'button',
-              role: 'menuitemradio',
-              'aria-checked': modelValue === option.value,
-              className: 'dsh-side-chat-model-option',
-              onClick: () => {
-                setModelValue(option.value)
-                closeMenu()
-              },
-            },
-            h('span', { className: 'dsh-side-chat-model-option-label' }, option.name),
-            modelValue === option.value ? checkIcon : null)))),
-          filtered.length === 0 ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.modelEmpty')) : null),
+          }, menuContent),
           document.body) : null
         const preview = draft.text.length > 500 ? `${draft.text.slice(0, 500)}…` : draft.text
         const sendIcon = h('svg', {
@@ -943,6 +1071,9 @@ window.__ModuleLoader__.load({
                 },
                 modelIcon,
                 h('span', { className: 'dsh-side-chat-model-label' }, modelLabel),
+                selectedEffort === undefined
+                  ? null
+                  : h('span', { className: 'dsh-side-chat-model-effort' }, selectedEffort.name),
                 chevronIcon),
                 h('button', {
                   type: 'button',

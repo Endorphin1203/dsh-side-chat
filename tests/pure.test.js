@@ -137,6 +137,15 @@ test('normalizeOpenPayload accepts an optional provider/model pair', () => {
   assert.equal(ok.value.model, 'deepseek-chat')
   assert.equal(normalizeOpenPayload({ ...base, provider: 'deepseek' }, LIMITS).ok, false)
   assert.equal(normalizeOpenPayload({ ...base, model: 'deepseek-chat' }, LIMITS).ok, false)
+  const withEffort = normalizeOpenPayload({
+    ...base,
+    provider: 'deepseek',
+    model: 'deepseek-chat',
+    reasoningEffort: 'high',
+  }, LIMITS)
+  assert.equal(withEffort.ok, true)
+  assert.equal(withEffort.value.reasoningEffort, 'high')
+  assert.equal(normalizeOpenPayload({ ...base, reasoningEffort: 'high' }, LIMITS).ok, false)
 })
 
 test('normalizeEndPayload accepts only side-chat ids and the end action', () => {
