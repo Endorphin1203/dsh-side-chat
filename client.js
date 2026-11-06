@@ -1381,6 +1381,13 @@ window.__ModuleLoader__.load({
         }, SideChatSelectionAction))
       }
 
+      // The Host command bridge logs `/sidechat` lifecycle events in the parent
+      // conversation; keep those internal rows out of the visible Chat flow.
+      ctx.slots.inject('conversation.chat.commandview', () => ctx.slots.register({
+        name: 'conversation.chat.commandview',
+        key: 'sidechat',
+      }, () => null))
+
       ctx.inject(['sidebarRightTabs'], (scope) => {
         scope.effect(() => scope.sidebarRightTabs.register({
           id: '@local/dsh-side-chat/draft',
