@@ -382,38 +382,38 @@ window.__ModuleLoader__.load({
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      .dsh-side-chat-model-root-value {
-        max-width: 140px;
-        margin-left: auto;
-        overflow: hidden;
-        color: var(--dsw-alias-label-secondary);
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-      .dsh-side-chat-model-root-chevron {
-        flex: none;
-        color: var(--dsw-alias-label-secondary);
-      }
-      .dsh-side-chat-model-back {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        width: 100%;
-        margin-bottom: 4px;
-        padding: 6px 8px;
-        border: 0;
+      .dsh-side-chat-model-effort-section {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        margin: 0 -6px 4px;
+        padding: 6px;
         border-bottom: 1px solid var(--dsw-alias-border-l1);
-        border-radius: 6px 6px 0 0;
+        background: var(--dsw-alias-bg-overlay);
+      }
+      .dsh-side-chat-model-effort-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .dsh-side-chat-model-effort-chip {
+        padding: 4px 8px;
+        border: 1px solid var(--dsw-alias-border-l1);
+        border-radius: 6px;
         background: transparent;
-        color: var(--dsw-alias-label-secondary);
+        color: var(--dsw-alias-label-primary);
         font: inherit;
         font-size: 12px;
-        line-height: 18px;
-        text-align: left;
+        line-height: 16px;
         cursor: pointer;
       }
-      .dsh-side-chat-model-back:hover {
+      .dsh-side-chat-model-effort-chip:hover,
+      .dsh-side-chat-model-effort-chip[data-active="true"] {
         background: var(--dsw-alias-bg-layer-2);
+      }
+      .dsh-side-chat-model-effort-chip:focus-visible {
+        outline: 2px solid var(--dsw-alias-brand-primary);
+        outline-offset: 1px;
       }
       .dsh-side-chat-model-effort {
         max-width: 90px;
@@ -850,7 +850,6 @@ window.__ModuleLoader__.load({
         const [catalog, setCatalog] = React.useState(null)
         const [modelValue, setModelValue] = React.useState('')
         const [effortValue, setEffortValue] = React.useState('')
-        const [pane, setPane] = React.useState('root')
         const inputRef = React.useRef(null)
         const triggerRef = React.useRef(null)
         const menuRef = React.useRef(null)
@@ -1065,7 +1064,6 @@ window.__ModuleLoader__.load({
           const left = Math.min(Math.max(8, rect.left), Math.max(8, window.innerWidth - width - 8))
           const bottom = Math.max(8, window.innerHeight - rect.top + 6)
           setMenuPosition({ left, bottom })
-          setPane('root')
           setMenuOpen(true)
         }
         const closeMenu = () => {
@@ -1082,10 +1080,6 @@ window.__ModuleLoader__.load({
         }
         const effortOptions = selectedModel?.efforts ?? []
         const selectedEffort = effortOptions.find(effort => effort.id === effortValue)
-        const effortLabel = selectedEffort === undefined ? t('draft.effortDefault') : selectedEffort.name
-        const rootEffortLabel = modelValue === ''
-          ? t('draft.effortUnavailable')
-          : effortLabel
         const checkIcon = h('svg', {
           viewBox: '0 0 16 16',
           width: 14,
@@ -1097,33 +1091,6 @@ window.__ModuleLoader__.load({
           fill: 'none',
           stroke: 'currentColor',
           'stroke-width': 1.7,
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-        }))
-        const chevronRight = h('svg', {
-          viewBox: '0 0 16 16',
-          width: 12,
-          height: 12,
-          className: 'dsh-side-chat-model-root-chevron',
-          'aria-hidden': true,
-        }, h('path', {
-          d: 'M6 4l4 4-4 4',
-          fill: 'none',
-          stroke: 'currentColor',
-          'stroke-width': 1.6,
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-        }))
-        const chevronLeft = h('svg', {
-          viewBox: '0 0 16 16',
-          width: 12,
-          height: 12,
-          'aria-hidden': true,
-        }, h('path', {
-          d: 'M10 4L6 8l4 4',
-          fill: 'none',
-          stroke: 'currentColor',
-          'stroke-width': 1.6,
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
         }))
@@ -1140,88 +1107,56 @@ window.__ModuleLoader__.load({
         },
         h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.modelInherit')),
         modelValue === '' ? checkIcon : null)
-        const modelRow = h('button', {
-          type: 'button',
-          role: 'menuitem',
-          className: 'dsh-side-chat-model-option',
-          onClick: () => setPane('model'),
-        },
-        h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.model')),
-        h('span', { className: 'dsh-side-chat-model-root-value' }, modelLabel),
-        chevronRight)
-        const effortRow = h('button', {
-          type: 'button',
-          role: 'menuitem',
-          className: 'dsh-side-chat-model-option',
-          disabled: modelValue === '',
-          onClick: () => setPane('effort'),
-        },
-        h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.effort')),
-        h('span', { className: 'dsh-side-chat-model-root-value' }, rootEffortLabel),
-        chevronRight)
-        const rootPane = h(React.Fragment, null, inheritRow, modelRow, effortRow)
-        const modelPane = h(React.Fragment, null,
-          h('button', {
-            type: 'button',
-            className: 'dsh-side-chat-model-back',
-            onClick: () => setPane('root'),
-          }, chevronLeft, t('draft.back')),
-          options.length === 0
-            ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.modelEmpty'))
-            : h(React.Fragment, null,
-              ...groups.map(group => h(React.Fragment, { key: `group-${group.name}` },
-                h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, group.name),
-                ...group.options.map(option => h('button', {
-                  key: option.value,
-                  type: 'button',
-                  role: 'menuitemradio',
-                  'aria-checked': modelValue === option.value,
-                  className: 'dsh-side-chat-model-option',
-                  onClick: () => {
-                    setModelValue(option.value)
-                    setEffortValue('')
-                    setPane('root')
-                  },
-                },
-                h('span', { className: 'dsh-side-chat-model-option-label' }, option.name),
-                modelValue === option.value ? checkIcon : null))))))
-        const effortPane = h(React.Fragment, null,
-          h('button', {
-            type: 'button',
-            className: 'dsh-side-chat-model-back',
-            onClick: () => setPane('root'),
-          }, chevronLeft, t('draft.back')),
-          modelValue === ''
-            ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.effortUnavailable'))
-            : effortOptions.length === 0
+        const effortSection = modelValue === ''
+          ? null
+          : h('div', { className: 'dsh-side-chat-model-effort-section' },
+            h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, t('draft.effort')),
+            effortOptions.length === 0
               ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.effortNone'))
-              : h(React.Fragment, null,
+              : h('div', { className: 'dsh-side-chat-model-effort-options' },
                 h('button', {
                   type: 'button',
                   role: 'menuitemradio',
                   'aria-checked': effortValue === '',
-                  className: 'dsh-side-chat-model-option',
+                  className: 'dsh-side-chat-model-effort-chip',
+                  'data-active': effortValue === '' ? 'true' : undefined,
                   onClick: () => {
                     setEffortValue('')
-                    setPane('root')
+                    closeMenu()
                   },
-                },
-                h('span', { className: 'dsh-side-chat-model-option-label' }, t('draft.effortDefault')),
-                effortValue === '' ? checkIcon : null),
+                }, t('draft.effortDefault')),
                 ...effortOptions.map(effort => h('button', {
                   key: effort.id,
                   type: 'button',
                   role: 'menuitemradio',
                   'aria-checked': effortValue === effort.id,
-                  className: 'dsh-side-chat-model-option',
+                  className: 'dsh-side-chat-model-effort-chip',
+                  'data-active': effortValue === effort.id ? 'true' : undefined,
                   onClick: () => {
                     setEffortValue(effort.id)
-                    setPane('root')
+                    closeMenu()
                   },
+                }, effort.name))))
+        const modelList = options.length === 0
+          ? h('div', { className: 'dsh-side-chat-model-empty' }, t('draft.modelEmpty'))
+          : h(React.Fragment, null,
+            h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, t('draft.model')),
+            ...groups.map(group => h(React.Fragment, { key: `group-${group.name}` },
+              h('div', { className: 'dsh-side-chat-model-group', role: 'presentation' }, group.name),
+              ...group.options.map(option => h('button', {
+                key: option.value,
+                type: 'button',
+                role: 'menuitemradio',
+                'aria-checked': modelValue === option.value,
+                className: 'dsh-side-chat-model-option',
+                onClick: () => {
+                  setModelValue(option.value)
+                  setEffortValue('')
                 },
-                h('span', { className: 'dsh-side-chat-model-option-label' }, effort.name),
-                effortValue === effort.id ? checkIcon : null))))
-        const menuContent = pane === 'model' ? modelPane : pane === 'effort' ? effortPane : rootPane
+              },
+              h('span', { className: 'dsh-side-chat-model-option-label' }, option.name),
+              modelValue === option.value ? checkIcon : null)))))
+        const menuContent = h(React.Fragment, null, inheritRow, effortSection, modelList)
         const modelMenu = menuOpen ? ReactDOM.createPortal(
           h('div', {
             className: 'dsh-side-chat-model-menu',
